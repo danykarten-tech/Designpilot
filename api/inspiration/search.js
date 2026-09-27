@@ -16,27 +16,32 @@ function classifySource(targetUrl, title = '', content = '') {
     const parsed = new URL(targetUrl);
     const hostname = parsed.hostname.toLowerCase();
 
-    // 1. Envato / ThemeForest (Priority 1)
-    if (hostname.includes('themeforest.net') || hostname.includes('elements.envato.com') || hostname.includes('graphicriver.net') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
-      return { sourceGroup: 'ENVATO_THEMEFOREST', sourceName: 'Envato / ThemeForest', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
+    // 1. GraphicRiver (Priority 1)
+    if (hostname.includes('graphicriver.net')) {
+      return { sourceGroup: 'GRAPHICRIVER', sourceName: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
     }
 
-    // 2. Awwwards (Priority 2)
+    // 2. Envato / ThemeForest (Priority 2)
+    if (hostname.includes('themeforest.net') || hostname.includes('elements.envato.com') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
+      return { sourceGroup: 'ENVATO_THEMEFOREST', sourceName: 'Envato / ThemeForest', dotClass: 'dot-envato', domain: hostname, priorityWeight: 98 };
+    }
+
+    // 3. Awwwards (Priority 3)
     if (hostname.includes('awwwards.com')) {
       return { sourceGroup: 'AWWWARDS', sourceName: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 95 };
     }
 
-    // 3. Dribbble (Priority 3)
+    // 4. Dribbble (Priority 4)
     if (hostname.includes('dribbble.com')) {
       return { sourceGroup: 'DRIBBBLE', sourceName: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname, priorityWeight: 90 };
     }
 
-    // 4. Behance (Priority 4)
+    // 5. Behance (Priority 5)
     if (hostname.includes('behance.net')) {
       return { sourceGroup: 'BEHANCE', sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 88 };
     }
 
-    // 5. Other relevant web inspiration (Priority 5)
+    // 6. Other relevant web inspiration (Priority 6)
     return { sourceGroup: 'OTHER', sourceName: 'Other web inspiration', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
 
   } catch (e) {
@@ -50,9 +55,9 @@ function classifySource(targetUrl, title = '', content = '') {
 function expandQuery(query) {
   const q = (query || '').toLowerCase().trim();
   return [
+    `site:graphicriver.net ${q} template UI`,
     `site:themeforest.net ${q} website theme live preview`,
     `site:elements.envato.com ${q} website template`,
-    `site:graphicriver.net ${q} web template UI`,
     `site:awwwards.com ${q} website`,
     `site:dribbble.com ${q} website design UI`,
     `site:behance.net ${q} website design UI`,
@@ -463,12 +468,14 @@ async function executeTavilySearch(apiKey, query) {
   deduplicated.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
   // Group by sourceGroup into exact priority order requested by user:
-  // 1. ENVATO / THEMEFOREST
-  // 2. AWWWARDS
-  // 3. DRIBBBLE
-  // 4. BEHANCE
-  // 5. OTHER
+  // 1. GRAPHICRIVER
+  // 2. ENVATO / THEMEFOREST
+  // 3. AWWWARDS
+  // 4. DRIBBBLE
+  // 5. BEHANCE
+  // 6. OTHER
   const sourceGroupOrder = [
+    'GRAPHICRIVER',
     'ENVATO_THEMEFOREST',
     'AWWWARDS',
     'DRIBBBLE',
