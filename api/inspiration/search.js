@@ -7,70 +7,45 @@ const searchCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
 // -------------------------------------------------------------------------
-// 1. EXACT SOURCE CLASSIFICATION & PRIORITY RESOLVER
+// 1. REAL SOURCE CLASSIFICATION (getSourceGroup)
 // -------------------------------------------------------------------------
 function classifySource(targetUrl, title = '', content = '') {
-  if (!targetUrl) return { sourceType: 'OTHER_INSPIRATION', sourceName: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
+  if (!targetUrl) return { sourceGroup: 'OTHER', sourceName: 'Other relevant websites', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
   
   try {
     const parsed = new URL(targetUrl);
     const hostname = parsed.hostname.toLowerCase();
-    const pathname = parsed.pathname.toLowerCase();
-    const fullText = `${title} ${content} ${pathname}`.toLowerCase();
 
-    // 1. ThemeForest
-    if (hostname.includes('themeforest.net')) {
-      return { sourceType: 'THEMEFOREST', sourceName: 'ThemeForest', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
+    // 1. Envato / ThemeForest
+    if (hostname.includes('themeforest.net') || hostname.includes('elements.envato.com') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
+      return { sourceGroup: 'ENVATO_THEMEFOREST', sourceName: 'Envato / ThemeForest', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
     }
 
-    // 2. Envato Elements & Envato Ecosystem
-    if (hostname.includes('elements.envato.com') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
-      return { sourceType: 'ENVATO', sourceName: 'Envato Elements', dotClass: 'dot-envato', domain: hostname, priorityWeight: 98 };
-    }
-
-    // 3. GraphicRiver
+    // 2. GraphicRiver
     if (hostname.includes('graphicriver.net')) {
-      return { sourceType: 'GRAPHICRIVER', sourceName: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname, priorityWeight: 95 };
+      return { sourceGroup: 'GRAPHICRIVER', sourceName: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname, priorityWeight: 95 };
     }
 
-    // 4. Awwwards
+    // 3. Awwwards
     if (hostname.includes('awwwards.com')) {
-      return { sourceType: 'AWWWARDS', sourceName: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 92 };
+      return { sourceGroup: 'AWWWARDS', sourceName: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 92 };
     }
 
-    // 5. Dribbble
+    // 4. Dribbble
     if (hostname.includes('dribbble.com')) {
-      return { sourceType: 'DRIBBBLE', sourceName: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname, priorityWeight: 90 };
+      return { sourceGroup: 'DRIBBBLE', sourceName: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname, priorityWeight: 90 };
     }
 
-    // 6. Behance
+    // 5. Behance
     if (hostname.includes('behance.net')) {
-      return { sourceType: 'BEHANCE', sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 90 };
+      return { sourceGroup: 'BEHANCE', sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 90 };
     }
 
-    // 7. Reputable Inspiration Sites
-    const knownInspirationDomains = [
-      'siteinspire.com', 'lapa.ninja', 'saasui.design', 'saasinterface.com', 'nicelydone.club',
-      'saasframe.io', 'landingfolio.com', 'pageflows.com', 'godly.website', 'onepagelove.com',
-      'dark.design', 'mobbin.com', 'land-book.com', 'webflow.com', 'figma.com'
-    ];
-    if (knownInspirationDomains.some(d => hostname.includes(d))) {
-      return { sourceType: 'OTHER_INSPIRATION', sourceName: 'Other Inspiration', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 75 };
-    }
-
-    // 8. Check if Article/Collection vs Live Website
-    const articleKeywords = ['top 10', 'top 15', 'top 20', 'top 25', 'top 30', 'top 50', 'best ', 'examples for', 'ideas for', 'how to', 'blog', 'article', 'guide', 'listicle'];
-    const isArticle = articleKeywords.some(kw => fullText.includes(kw)) || pathname.includes('/blog/') || pathname.includes('/articles/');
-
-    if (isArticle) {
-      return { sourceType: 'ARTICLE', sourceName: 'Articles & Collections', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 50 };
-    }
-
-    // 9. Real Brand / E-commerce / Product Website
-    return { sourceType: 'LIVE_WEBSITE', sourceName: 'Live Websites', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
+    // 6. Other relevant websites
+    return { sourceGroup: 'OTHER', sourceName: 'Other relevant websites', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
 
   } catch (e) {
-    return { sourceType: 'OTHER_INSPIRATION', sourceName: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
+    return { sourceGroup: 'OTHER', sourceName: 'Other relevant websites', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
   }
 }
 
@@ -86,8 +61,7 @@ function expandQuery(query) {
     `site:awwwards.com ${q}`,
     `site:dribbble.com ${q}`,
     `site:behance.net ${q}`,
-    `"${q}" website design UI inspiration`,
-    `"${q}" storefront UI UX showcase`
+    `"${q}" website design UI inspiration`
   ];
 }
 
@@ -119,7 +93,7 @@ function calculateRelevanceScore(item, query, sourceInfo) {
   score += Math.round(((sourceWeight - 40) / 60) * 25);
 
   // 3. Design relevance (+20 max)
-  const designKw = ['ui', 'ux', 'template', 'design', 'storefront', 'dashboard', 'showcase', 'landing page', 'ecommerce', 'app', 'website', 'shot', 'project'];
+  const designKw = ['ui', 'ux', 'template', 'design', 'storefront', 'dashboard', 'showcase', 'landing page', 'ecommerce', 'app', 'website', 'shot', 'project', 'theme'];
   let designCount = 0;
   designKw.forEach(kw => { if (fullText.includes(kw)) designCount++; });
   score += Math.min(20, designCount * 5);
@@ -131,10 +105,13 @@ function calculateRelevanceScore(item, query, sourceInfo) {
     score += Math.min(10, Math.round((titleMatch / terms.length) * 10));
   }
 
-  // 5. Specific Useful Result URL (+5 max)
+  // 5. Image availability & useful deep path (+5 max)
+  if (item.thumbnail || item.previewImage) {
+    score += 3;
+  }
   const specificPath = ['/item/', '/shots/', '/gallery/', '/sites/', '/templates/', '/product/', '/p/'];
   if (specificPath.some(p => (item.url || '').toLowerCase().includes(p))) {
-    score += 5;
+    score += 2;
   }
 
   return Math.min(98, Math.max(45, score));
@@ -173,7 +150,6 @@ function deduplicateResults(list) {
 
     try {
       const u = new URL(rawUrl);
-      // Remove common tracking parameters
       const cleanParams = new URLSearchParams();
       u.searchParams.forEach((val, key) => {
         if (!key.startsWith('utm_') && key !== 'ref' && key !== 'srsltid' && key !== 'fbclid') {
@@ -302,18 +278,22 @@ async function executeTavilySearch(apiKey, query) {
 
     const category = inferCategory(query, item.title, item.content);
     
+    // Strip raw HTML tags from title and snippet/content to prevent raw markup bleeding
+    const cleanTitle = (item.title || 'Design Inspiration').replace(/<[^>]*>?/gm, '').trim();
+    const cleanDesc = (item.content || item.snippet || '').replace(/<[^>]*>?/gm, '').trim();
+
     const normalizedItem = {
       id: 'tavily-' + crypto.createHash('md5').update(itemUrl).digest('hex').substring(0, 12),
-      title: item.title || 'Design Inspiration',
+      title: cleanTitle,
       url: itemUrl,
       originalUrl: itemUrl,
       sourceUrl: itemUrl,
       source: sourceInfo.sourceName,
       sourceName: sourceInfo.sourceName,
-      sourceType: sourceInfo.sourceType,
+      sourceGroup: sourceInfo.sourceGroup,
       dotClass: sourceInfo.dotClass,
       domain: sourceInfo.domain,
-      description: item.content || item.snippet || '',
+      description: cleanDesc,
       thumbnail: thumb,
       previewImage: thumb,
       thumbnailImage: thumb,
@@ -331,26 +311,23 @@ async function executeTavilySearch(apiKey, query) {
   // Sort all results by calculated relevance score descending
   deduplicated.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-  // Group by sourceType into ordered sections
-  const sourceTypeOrder = [
-    'THEMEFOREST',
-    'ENVATO',
+  // Group by sourceGroup into exact priority order
+  const sourceGroupOrder = [
+    'ENVATO_THEMEFOREST',
     'GRAPHICRIVER',
     'AWWWARDS',
     'DRIBBBLE',
     'BEHANCE',
-    'OTHER_INSPIRATION',
-    'LIVE_WEBSITE',
-    'ARTICLE'
+    'OTHER'
   ];
 
   const grouped = {};
-  sourceTypeOrder.forEach(st => grouped[st] = []);
+  sourceGroupOrder.forEach(sg => grouped[sg] = []);
 
   deduplicated.forEach(item => {
-    const st = item.sourceType || 'OTHER_INSPIRATION';
-    if (!grouped[st]) grouped[st] = [];
-    grouped[st].push(item);
+    const sg = item.sourceGroup || 'OTHER';
+    if (!grouped[sg]) grouped[sg] = [];
+    grouped[sg].push(item);
   });
 
   const payload = {
@@ -433,17 +410,15 @@ module.exports = async function handler(req, res) {
     if (filters.source && filters.source !== 'All Sources') {
       const srcFilter = filters.source.toLowerCase().trim();
       filteredResults = filteredResults.filter(item => {
-        const itemType = (item.sourceType || '').toLowerCase();
+        const itemGroup = (item.sourceGroup || '').toLowerCase();
         const itemSrc = (item.sourceName || item.source || '').toLowerCase();
         
-        if (srcFilter === 'themeforest') return itemType === 'themeforest';
-        if (srcFilter === 'envato elements') return itemType === 'envato';
-        if (srcFilter === 'graphicriver') return itemType === 'graphicriver';
-        if (srcFilter === 'awwwards') return itemType === 'awwwards';
-        if (srcFilter === 'dribbble') return itemType === 'dribbble';
-        if (srcFilter === 'behance') return itemType === 'behance';
-        if (srcFilter === 'other inspiration') return itemType === 'other_inspiration';
-        if (srcFilter === 'live websites') return itemType === 'live_website';
+        if (srcFilter === 'envato / themeforest' || srcFilter === 'themeforest') return itemGroup === 'envato_themeforest';
+        if (srcFilter === 'graphicriver') return itemGroup === 'graphicriver';
+        if (srcFilter === 'awwwards') return itemGroup === 'awwwards';
+        if (srcFilter === 'dribbble') return itemGroup === 'dribbble';
+        if (srcFilter === 'behance') return itemGroup === 'behance';
+        if (srcFilter === 'other') return itemGroup === 'other';
 
         return itemSrc.includes(srcFilter);
       });
@@ -466,7 +441,7 @@ module.exports = async function handler(req, res) {
     console.error('[DesignPilot Search Handler Error]:', err);
     return sendJson(200, {
       status: 'error',
-      error: 'Search temporarily unavailable.',
+      error: 'Unable to load live inspiration right now.',
       message: err.message,
       results: []
     });

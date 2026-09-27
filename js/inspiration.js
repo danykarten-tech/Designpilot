@@ -2,6 +2,16 @@
    DESIGNPILOT AI - INSPIRATION CONTROLLER & CARD RENDERER (js/inspiration.js)
    ========================================================================== */
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 window.initInspiration = function(state) {
   const inspInput = document.getElementById('insp-page-search-input');
   const inspBtn = document.getElementById('insp-page-search-btn');
@@ -84,9 +94,9 @@ function renderRecentSearches(state) {
   container.innerHTML = `
     <span class="recent-label"><i class="fa-solid fa-clock-rotate-left"></i> Recent:</span>
     ${history.map(item => `
-      <div class="recent-chip" data-query="${item}">
-        <span class="recent-query-text">${item}</span>
-        <button class="recent-delete-btn" data-delete="${item}" title="Delete search">&times;</button>
+      <div class="recent-chip" data-query="${escapeHtml(item)}">
+        <span class="recent-query-text">${escapeHtml(item)}</span>
+        <button class="recent-delete-btn" data-delete="${escapeHtml(item)}" title="Delete search">&times;</button>
       </div>
     `).join('')}
   `;
@@ -111,28 +121,23 @@ function renderRecentSearches(state) {
   });
 }
 
-// Single Card HTML Generator
+// Single Card HTML Generator (Clean Layered Placeholder & Sanitized Fields)
 function renderCardHtml(item) {
   const isSaved = window.StorageManager ? window.StorageManager.isSaved(item.id) : false;
   
   const displayImgSrc = item.previewImage || item.thumbnailImage;
-  const placeholderHtml = `
-    <div class="card-thumb-placeholder" style="width:100%; height:180px; background:#131518; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#777c85; border-radius:var(--radius-md); border: 1px solid rgba(255,255,255,0.05); padding: 16px; text-align: center;">
-      <span class="source-dot ${item.dotClass || 'dot-awwwards'}" style="width: 10px; height: 10px; margin-bottom: 8px;"></span>
-      <span style="font-size:12px; font-weight:700; color: #e2e8f0; margin-bottom: 4px;">${item.sourceName || 'Source'}</span>
-      <span style="font-size:11px; font-weight:500; color: #64748b;">No preview available</span>
-    </div>
-  `;
-
-  const imgHtml = displayImgSrc 
-    ? `<img class="card-thumb" src="${displayImgSrc}" alt="${item.title}" loading="lazy" onerror="this.onerror=null; this.parentNode.innerHTML='${placeholderHtml.replace(/'/g, "&apos;")}';">`
-    : placeholderHtml;
+  const safeTitle = escapeHtml(item.title || 'Design Inspiration');
+  const safeSource = escapeHtml(item.sourceName || item.source || 'Web');
+  const safeCategory = escapeHtml(item.category || 'Website');
+  const safePageType = escapeHtml(item.pageType || 'Template');
+  const dotClass = escapeHtml(item.dotClass || 'dot-awwwards');
+  const score = item.relevanceScore || 85;
 
   const targetLink = item.originalUrl || item.url || item.sourceUrl;
   let actionButtonsHtml = '';
   if (isValidUrl(targetLink)) {
     actionButtonsHtml = `
-      <a href="${targetLink}" target="_blank" rel="noopener noreferrer" class="btn-original-link">
+      <a href="${escapeHtml(targetLink)}" target="_blank" rel="noopener noreferrer" class="btn-original-link">
         View Original ↗
       </a>
     `;
@@ -144,33 +149,40 @@ function renderCardHtml(item) {
     `;
   }
 
+  const imageElementHtml = displayImgSrc
+    ? `<img class="card-thumb" src="${escapeHtml(displayImgSrc)}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none';">`
+    : '';
+
   return `
-    <article class="design-card" data-id="${item.id}">
+    <article class="design-card" data-id="${escapeHtml(item.id)}">
       <div class="card-thumb-wrapper">
-        ${imgHtml}
+        <div class="card-thumb-placeholder">
+          <span class="source-dot ${dotClass}" style="width: 10px; height: 10px; margin-bottom: 8px;"></span>
+          <span style="font-size:12px; font-weight:700; color: #e2e8f0; margin-bottom: 4px;">${safeSource}</span>
+          <span style="font-size:11px; font-weight:500; color: #64748b;">Preview unavailable</span>
+        </div>
+        ${imageElementHtml}
         
         <span class="card-source-tag">
-          <span class="source-dot ${item.dotClass || 'dot-awwwards'}"></span> ${item.sourceName || item.source || 'Web'}
+          <span class="source-dot ${dotClass}"></span> ${safeSource}
           ${item.isDemo ? '<span class="demo-tag-pill">DEMO</span>' : ''}
         </span>
 
-        ${item.relevanceScore ? `
-          <span class="relevance-badge" title="Calculated Relevance Score">
-            <i class="fa-solid fa-bolt" style="font-size: 10px;"></i> ${item.relevanceScore}% Match
-          </span>
-        ` : ''}
+        <span class="relevance-badge" title="Calculated Relevance Score">
+          <i class="fa-solid fa-bolt" style="font-size: 10px;"></i> ${score}% Match
+        </span>
       </div>
 
       <div class="card-info">
-        <h3 class="card-title">${item.title}</h3>
+        <h3 class="card-title">${safeTitle}</h3>
         <div class="card-meta">
-          <span>${item.category || 'Website'}</span> • <span>${item.pageType || 'Template'}</span>
+          <span>${safeCategory}</span> • <span>${safePageType}</span>
         </div>
 
         <div class="card-actions-row">
           ${actionButtonsHtml}
           
-          <button class="btn-card-icon btn-card-save ${isSaved ? 'saved' : ''}" data-id="${item.id}" title="${isSaved ? 'Remove from Saved' : 'Save Reference'}">
+          <button class="btn-card-icon btn-card-save ${isSaved ? 'saved' : ''}" data-id="${escapeHtml(item.id)}" title="${isSaved ? 'Remove from Saved' : 'Save Reference'}">
             <i class="${isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark'}" style="${isSaved ? 'color: var(--primary-color);' : ''}"></i>
           </button>
         </div>
@@ -187,14 +199,14 @@ window.renderInspirationPage = async function(state) {
 
   if (!container) return;
 
-  // 1. Loading State
+  // 1. Polished Skeleton Loading State
   container.style.display = 'block';
   container.className = '';
   container.innerHTML = `
-    <div style="padding: 28px 20px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 24px;">
+    <div style="padding: 24px 20px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 24px;">
       <div style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
         <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 16px;"></i>
-        <span>Searching design inspiration across ThemeForest, GraphicRiver, Awwwards, Dribbble, Behance...</span>
+        <span>Searching design inspiration across Envato, GraphicRiver, Awwwards, Dribbble, Behance...</span>
       </div>
       <div class="design-grid">
         ${Array(4).fill(0).map(() => `
@@ -229,7 +241,7 @@ window.renderInspirationPage = async function(state) {
     response = {
       items: [],
       groupedResults: {},
-      error: 'Search temporarily unavailable.',
+      error: 'Unable to load live inspiration right now.',
       message: err.message
     };
   }
@@ -237,32 +249,29 @@ window.renderInspirationPage = async function(state) {
   // 2. Error State Handling
   if (response.error) {
     container.style.display = 'block';
-    if (countText) countText.textContent = 'Search temporarily unavailable';
+    if (countText) countText.textContent = 'Unable to load live inspiration right now.';
 
     container.innerHTML = `
       <div class="no-results-box" style="border: 1px dashed var(--border-color); padding: 36px 20px; text-align: center; border-radius: var(--radius-lg); background: var(--bg-surface);">
         <div class="no-results-icon" style="color: #f59e0b; font-size: 32px; margin-bottom: 12px;">
           <i class="fa-solid fa-triangle-exclamation"></i>
         </div>
-        <h3 style="font-size: 18px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px;">${response.error}</h3>
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px;">Unable to load live inspiration right now.</h3>
         <p style="color: var(--text-secondary); font-size: 14px; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
-          ${response.message || 'The search service is temporarily unavailable. Please try again shortly.'}
+          ${escapeHtml(response.message || 'The search service is temporarily unavailable. Please try again shortly.')}
         </p>
 
-        <div class="suggested-searches-list" style="margin-top: 16px;">
-          <button class="suggestion-chip switch-demo-chip" style="background: var(--primary-color); color: #fff; border: none; font-weight: 600;">
-            <i class="fa-solid fa-flask" style="margin-right: 6px;"></i> Enable Development Demo Mode
+        <div style="margin-top: 16px;">
+          <button class="hero-search-btn retry-search-btn" style="padding: 10px 24px;">
+            <i class="fa-solid fa-rotate-right" style="margin-right: 6px;"></i> Try again
           </button>
         </div>
       </div>
     `;
 
-    const demoSwitchBtn = container.querySelector('.switch-demo-chip');
-    if (demoSwitchBtn) {
-      demoSwitchBtn.addEventListener('click', () => {
-        state.provider = new window.DemoInspirationProvider(window.DESIGNPILOT_DATA ? window.DESIGNPILOT_DATA.INSPIRATIONS : []);
-        const sourceSelect = document.getElementById('insp-source-select');
-        if (sourceSelect) sourceSelect.value = 'Demo Mode';
+    const retryBtn = container.querySelector('.retry-search-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
         window.renderInspirationPage(state);
       });
     }
@@ -284,16 +293,16 @@ window.renderInspirationPage = async function(state) {
       <div class="no-results-box">
         <div class="no-results-icon"><i class="fa-solid fa-folder-open"></i></div>
         <h3>No inspiration found</h3>
-        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 6px;">We couldn't find matches for "${state.searchQuery}". Try searching one of these topics:</p>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 6px;">We couldn't find matches for "${escapeHtml(state.searchQuery)}". Try searching one of these topics:</p>
 
         <div class="suggested-searches-list">
           <button class="suggestion-chip insp-retry-chip" data-query="footwear ecommerce">footwear ecommerce</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="SaaS dashboard">SaaS dashboard</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="fintech website">fintech website</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="fashion website">fashion website</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="saas dashboard">saas dashboard</button>
           <button class="suggestion-chip insp-retry-chip" data-query="restaurant website">restaurant website</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="fashion ecommerce">fashion ecommerce</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="fintech website">fintech website</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="mobile banking app">mobile banking app</button>
           <button class="suggestion-chip insp-retry-chip" data-query="real estate website">real estate website</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="AI SaaS landing page">AI SaaS landing page</button>
         </div>
       </div>
     `;
@@ -315,7 +324,7 @@ window.renderInspirationPage = async function(state) {
 
   const currentSourceFilter = state.activeSource || 'All Sources';
 
-  // If specific source is selected, render single grid
+  // If a specific source is selected, render single 4-column grid
   if (currentSourceFilter !== 'All Sources') {
     container.style.display = 'grid';
     container.className = 'design-grid';
@@ -324,17 +333,20 @@ window.renderInspirationPage = async function(state) {
     return;
   }
 
-  // If "All Sources" is selected, render grouped sections ordered by exact priority!
+  // If "All Sources" is selected, render grouped sections ordered by EXACT priority:
+  // Priority 1: Envato / ThemeForest
+  // Priority 2: GraphicRiver
+  // Priority 3: Awwwards
+  // Priority 4: Dribbble
+  // Priority 5: Behance
+  // Priority 6: Other relevant websites
   const sectionDefinitions = [
-    { key: 'THEMEFOREST', title: 'ThemeForest', selectValue: 'ThemeForest', dotClass: 'dot-envato' },
-    { key: 'ENVATO', title: 'Envato Elements', selectValue: 'Envato Elements', dotClass: 'dot-envato' },
+    { key: 'ENVATO_THEMEFOREST', title: 'Envato / ThemeForest', selectValue: 'Envato / ThemeForest', dotClass: 'dot-envato' },
     { key: 'GRAPHICRIVER', title: 'GraphicRiver', selectValue: 'GraphicRiver', dotClass: 'dot-envato' },
     { key: 'AWWWARDS', title: 'Awwwards', selectValue: 'Awwwards', dotClass: 'dot-awwwards' },
     { key: 'DRIBBBLE', title: 'Dribbble', selectValue: 'Dribbble', dotClass: 'dot-dribbble' },
     { key: 'BEHANCE', title: 'Behance', selectValue: 'Behance', dotClass: 'dot-behance' },
-    { key: 'OTHER_INSPIRATION', title: 'Other Inspiration', selectValue: 'Other Inspiration', dotClass: 'dot-awwwards' },
-    { key: 'LIVE_WEBSITE', title: 'Live Websites', selectValue: 'Live Websites', dotClass: 'dot-awwwards' },
-    { key: 'ARTICLE', title: 'Articles & Collections', selectValue: 'All Sources', dotClass: 'dot-awwwards' }
+    { key: 'OTHER', title: 'Other relevant websites', selectValue: 'Other', dotClass: 'dot-awwwards' }
   ];
 
   container.style.display = 'block';
@@ -345,6 +357,11 @@ window.renderInspirationPage = async function(state) {
   sectionDefinitions.forEach(sec => {
     let sectionItems = groupedResults[sec.key] || [];
     
+    // Support fallback bucket resolution
+    if (sec.key === 'ENVATO_THEMEFOREST' && sectionItems.length === 0) {
+      sectionItems = (groupedResults['THEMEFOREST'] || []).concat(groupedResults['ENVATO'] || []);
+    }
+
     // Apply visual category filter (e.g. Luxury, Minimal, Saved) if active
     if (state.activeFilter && state.activeFilter !== 'All') {
       if (state.activeFilter === 'Saved') {
@@ -361,6 +378,7 @@ window.renderInspirationPage = async function(state) {
       }
     }
 
+    // HIDE EMPTY SECTIONS COMPLETELY (Skip section if 0 items)
     if (sectionItems.length > 0) {
       htmlSections += `
         <section class="source-group-section">
@@ -372,7 +390,7 @@ window.renderInspirationPage = async function(state) {
             </div>
 
             <button class="view-all-source-btn" data-source="${sec.selectValue}">
-              View all ${sectionItems.length} →
+              View all →
             </button>
           </div>
 
@@ -407,7 +425,7 @@ function attachInspirationCardEvents(container, state) {
     });
   });
 
-  // "View all X →" Section Button Events
+  // "View all →" Section Button Events
   container.querySelectorAll('.view-all-source-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const src = e.currentTarget.dataset.source;
