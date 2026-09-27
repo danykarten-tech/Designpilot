@@ -125,7 +125,7 @@ function renderRecentSearches(state) {
 function renderCardHtml(item) {
   const isSaved = window.StorageManager ? window.StorageManager.isSaved(item.id) : false;
   
-  const displayImgSrc = item.previewImage || item.thumbnailImage || item.thumbnail || item.image;
+  const displayImgSrc = item.previewImage || item.thumbnailImage || item.thumbnail || item.image || item.imageUrl;
   const safeTitle = escapeHtml(item.title || 'Design Inspiration');
   const safeSource = escapeHtml(item.sourceName || item.source || 'Web');
   const safeCategory = escapeHtml(item.category || 'Website');
@@ -134,30 +134,30 @@ function renderCardHtml(item) {
   const score = item.relevanceScore || 85;
 
   const originalLink = item.originalUrl || item.url || item.sourceUrl;
-  const demoLink = item.demoUrl;
+  const demoLink = item.demoUrl || item.liveDemoUrl;
   const hasLiveDemo = item.hasLiveDemo && isValidUrl(demoLink);
 
   let actionButtonsHtml = '';
   
-  if (hasLiveDemo) {
-    actionButtonsHtml += `
-      <a href="${escapeHtml(demoLink)}" target="_blank" rel="noopener noreferrer" class="btn-demo-link">
-        Open Live Demo ↗
-      </a>
-    `;
-  }
-
   if (isValidUrl(originalLink)) {
     actionButtonsHtml += `
       <a href="${escapeHtml(originalLink)}" target="_blank" rel="noopener noreferrer" class="btn-original-link ${hasLiveDemo ? 'secondary' : ''}">
-        View Original ↗
+        View Item ↗
       </a>
     `;
-  } else if (!hasLiveDemo) {
+  } else {
     actionButtonsHtml += `
       <button disabled class="btn-original-link disabled" title="Link unavailable">
         Link unavailable
       </button>
+    `;
+  }
+
+  if (hasLiveDemo) {
+    actionButtonsHtml += `
+      <a href="${escapeHtml(demoLink)}" target="_blank" rel="noopener noreferrer" class="btn-demo-link">
+        Live Demo ↗
+      </a>
     `;
   }
 
@@ -218,7 +218,7 @@ window.renderInspirationPage = async function(state) {
     <div style="padding: 24px 20px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 24px;">
       <div style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
         <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 16px;"></i>
-        <span>Searching design inspiration across GraphicRiver, Envato, Awwwards, Dribbble, Behance...</span>
+        <span>Searching design inspiration across Envato, Awwwards, Dribbble, Behance...</span>
       </div>
       <div class="design-grid">
         ${Array(4).fill(0).map(() => `
@@ -304,17 +304,15 @@ window.renderInspirationPage = async function(state) {
     container.innerHTML = `
       <div class="no-results-box">
         <div class="no-results-icon"><i class="fa-solid fa-folder-open"></i></div>
-        <h3>No inspiration found</h3>
+        <h3>No strong matches found</h3>
         <p style="color: var(--text-secondary); font-size: 14px; margin-top: 6px;">We couldn't find matches for "${escapeHtml(state.searchQuery)}". Try searching one of these topics:</p>
 
         <div class="suggested-searches-list">
-          <button class="suggestion-chip insp-retry-chip" data-query="footwear ecommerce">footwear ecommerce</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="fashion website">fashion website</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="saas dashboard">saas dashboard</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="restaurant website">restaurant website</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="fintech website">fintech website</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="mobile banking app">mobile banking app</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="real estate website">real estate website</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="Footwear ecommerce">Footwear ecommerce</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="Shoe landing page">Shoe landing page</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="Fashion ecommerce">Fashion ecommerce</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="Sneaker website">Sneaker website</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="Sportswear website">Sportswear website</button>
         </div>
       </div>
     `;
@@ -346,19 +344,17 @@ window.renderInspirationPage = async function(state) {
   }
 
   // If "All Sources" is selected, render grouped sections ordered by EXACT priority:
-  // Priority 1: GraphicRiver
-  // Priority 2: Envato / ThemeForest
-  // Priority 3: Awwwards
-  // Priority 4: Dribbble
-  // Priority 5: Behance
-  // Priority 6: Other relevant websites
+  // Priority 1: ENVATO / THEMEFOREST
+  // Priority 2: AWWWARDS
+  // Priority 3: DRIBBBLE
+  // Priority 4: BEHANCE
+  // Priority 5: OTHER WEB INSPIRATION
   const sectionDefinitions = [
-    { key: 'GRAPHICRIVER', title: 'GraphicRiver', selectValue: 'GraphicRiver', dotClass: 'dot-envato' },
-    { key: 'ENVATO_THEMEFOREST', title: 'Envato / ThemeForest', selectValue: 'Envato / ThemeForest', dotClass: 'dot-envato' },
-    { key: 'AWWWARDS', title: 'Awwwards', selectValue: 'Awwwards', dotClass: 'dot-awwwards' },
-    { key: 'DRIBBBLE', title: 'Dribbble', selectValue: 'Dribbble', dotClass: 'dot-dribbble' },
-    { key: 'BEHANCE', title: 'Behance', selectValue: 'Behance', dotClass: 'dot-behance' },
-    { key: 'OTHER', title: 'Other relevant websites', selectValue: 'Other', dotClass: 'dot-awwwards' }
+    { key: 'ENVATO_THEMEFOREST', title: 'ENVATO / THEMEFOREST', selectValue: 'Envato / ThemeForest', dotClass: 'dot-envato' },
+    { key: 'AWWWARDS', title: 'AWWWARDS', selectValue: 'Awwwards', dotClass: 'dot-awwwards' },
+    { key: 'DRIBBBLE', title: 'DRIBBBLE', selectValue: 'Dribbble', dotClass: 'dot-dribbble' },
+    { key: 'BEHANCE', title: 'BEHANCE', selectValue: 'Behance', dotClass: 'dot-behance' },
+    { key: 'OTHER', title: 'OTHER WEB INSPIRATION', selectValue: 'Other', dotClass: 'dot-awwwards' }
   ];
 
   container.style.display = 'block';

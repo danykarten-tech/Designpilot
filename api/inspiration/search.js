@@ -10,42 +10,37 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 // 1. REAL SOURCE CLASSIFICATION (getSourceGroup)
 // -------------------------------------------------------------------------
 function classifySource(targetUrl, title = '', content = '') {
-  if (!targetUrl) return { sourceGroup: 'OTHER', sourceName: 'Other relevant websites', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
+  if (!targetUrl) return { sourceGroup: 'OTHER', sourceName: 'Other web inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
   
   try {
     const parsed = new URL(targetUrl);
     const hostname = parsed.hostname.toLowerCase();
 
-    // 1. GraphicRiver (Priority 1)
-    if (hostname.includes('graphicriver.net')) {
-      return { sourceGroup: 'GRAPHICRIVER', sourceName: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
+    // 1. Envato / ThemeForest (Priority 1)
+    if (hostname.includes('themeforest.net') || hostname.includes('elements.envato.com') || hostname.includes('graphicriver.net') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
+      return { sourceGroup: 'ENVATO_THEMEFOREST', sourceName: 'Envato / ThemeForest', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
     }
 
-    // 2. Envato / ThemeForest (Priority 2)
-    if (hostname.includes('themeforest.net') || hostname.includes('elements.envato.com') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
-      return { sourceGroup: 'ENVATO_THEMEFOREST', sourceName: 'Envato / ThemeForest', dotClass: 'dot-envato', domain: hostname, priorityWeight: 98 };
-    }
-
-    // 3. Awwwards (Priority 3)
+    // 2. Awwwards (Priority 2)
     if (hostname.includes('awwwards.com')) {
       return { sourceGroup: 'AWWWARDS', sourceName: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 95 };
     }
 
-    // 4. Dribbble (Priority 4)
+    // 3. Dribbble (Priority 3)
     if (hostname.includes('dribbble.com')) {
       return { sourceGroup: 'DRIBBBLE', sourceName: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname, priorityWeight: 90 };
     }
 
-    // 5. Behance (Priority 5)
+    // 4. Behance (Priority 4)
     if (hostname.includes('behance.net')) {
-      return { sourceGroup: 'BEHANCE', sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 90 };
+      return { sourceGroup: 'BEHANCE', sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 88 };
     }
 
-    // 6. Other relevant websites (Priority 6)
-    return { sourceGroup: 'OTHER', sourceName: 'Other relevant websites', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
+    // 5. Other relevant web inspiration (Priority 5)
+    return { sourceGroup: 'OTHER', sourceName: 'Other web inspiration', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
 
   } catch (e) {
-    return { sourceGroup: 'OTHER', sourceName: 'Other relevant websites', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
+    return { sourceGroup: 'OTHER', sourceName: 'Other web inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
   }
 }
 
@@ -55,14 +50,13 @@ function classifySource(targetUrl, title = '', content = '') {
 function expandQuery(query) {
   const q = (query || '').toLowerCase().trim();
   return [
-    `site:graphicriver.net ${q}`,
-    `site:themeforest.net ${q}`,
-    `site:elements.envato.com ${q}`,
-    `site:awwwards.com ${q}`,
-    `site:dribbble.com ${q}`,
-    `site:behance.net ${q}`,
-    `"${q}" website design UI inspiration`,
-    `"${q}" live demo template`
+    `site:themeforest.net ${q} website theme live preview`,
+    `site:elements.envato.com ${q} website template`,
+    `site:graphicriver.net ${q} web template UI`,
+    `site:awwwards.com ${q} website`,
+    `site:dribbble.com ${q} website design UI`,
+    `site:behance.net ${q} website design UI`,
+    `"${q}" website design live preview inspiration`
   ];
 }
 
@@ -135,8 +129,48 @@ function extractDemoUrl(itemUrl, content = '', title = '') {
 }
 
 // -------------------------------------------------------------------------
-// 2C. GENERIC ARTICLE FILTERING ENGINE
+// 2C. GENERIC SEARCH PAGE & ARTICLE FILTERING ENGINE
 // -------------------------------------------------------------------------
+function isGenericSearchPage(targetUrl, title = '') {
+  if (!targetUrl) return true;
+  const u = targetUrl.toLowerCase();
+
+  const genericPathPatterns = [
+    '/search',
+    '/search/',
+    'search=',
+    '-in-graphics',
+    '-in-icons',
+    '-in-presentation-templates',
+    '/graphics-with-',
+    '+in+',
+    '/search/projects',
+    '/search/shots',
+    '/services/search',
+    '/search/services',
+    '/tags/',
+    '/categories/',
+    '/browse/'
+  ];
+
+  for (const pattern of genericPathPatterns) {
+    if (u.includes(pattern)) {
+      return true;
+    }
+  }
+
+  if (u.includes('themeforest.net/search') || 
+      u.includes('graphicriver.net/search') || 
+      u.includes('elements.envato.com/search') ||
+      u.includes('dribbble.com/search') || 
+      u.includes('behance.net/search') || 
+      u.includes('awwwards.com/search')) {
+    return true;
+  }
+
+  return false;
+}
+
 function isGenericArticle(title, url, content) {
   const t = (title || '').toLowerCase();
   const u = (url || '').toLowerCase();
@@ -189,8 +223,8 @@ function calculateRelevanceScore(item, query, sourceInfo) {
   const sourceWeight = sourceInfo.priorityWeight || 70;
   score += Math.round(((sourceWeight - 40) / 60) * 25);
 
-  // 3. Design relevance (+20 max)
-  const designKw = ['ui', 'ux', 'template', 'design', 'storefront', 'dashboard', 'showcase', 'landing page', 'ecommerce', 'app', 'website', 'shot', 'project', 'theme'];
+  // 3. Design & Template relevance (+20 max)
+  const designKw = ['ui', 'ux', 'template', 'design', 'storefront', 'dashboard', 'showcase', 'landing page', 'ecommerce', 'app', 'website', 'shot', 'project', 'theme', 'shopify'];
   let designCount = 0;
   designKw.forEach(kw => { if (fullText.includes(kw)) designCount++; });
   score += Math.min(20, designCount * 5);
@@ -224,7 +258,7 @@ function calculateRelevanceScore(item, query, sourceInfo) {
 // -------------------------------------------------------------------------
 function inferCategory(query, title, content) {
   const text = `${query} ${title} ${content}`.toLowerCase();
-  if (text.includes('ecommerce') || text.includes('shoe') || text.includes('footwear') || text.includes('fashion') || text.includes('store')) {
+  if (text.includes('ecommerce') || text.includes('shoe') || text.includes('footwear') || text.includes('fashion') || text.includes('store') || text.includes('shopify')) {
     return 'Ecommerce';
   }
   if (text.includes('saas') || text.includes('dashboard') || text.includes('analytics') || text.includes('app')) {
@@ -331,7 +365,7 @@ function callTavilyApi(apiKey, searchQuery) {
 }
 
 // -------------------------------------------------------------------------
-// 7. CORE SEARCH ENGINE EXECUTION WITH TAVILY
+// 7. CORE SEARCH ENGINE EXECUTION WITH TAVILY PROVIDER ARCHITECTURE
 // -------------------------------------------------------------------------
 async function executeTavilySearch(apiKey, query) {
   const normalizedQuery = (query || '').toLowerCase().trim();
@@ -391,9 +425,10 @@ async function executeTavilySearch(apiKey, query) {
       title: cleanTitle,
       url: itemUrl,
       originalUrl: itemUrl,
+      sourceUrl: itemUrl,
+      liveDemoUrl: demoInfo.demoUrl,
       demoUrl: demoInfo.demoUrl,
       hasLiveDemo: demoInfo.hasLiveDemo,
-      sourceUrl: itemUrl,
       source: sourceInfo.sourceName,
       sourceName: sourceInfo.sourceName,
       sourceGroup: sourceInfo.sourceGroup,
@@ -401,6 +436,7 @@ async function executeTavilySearch(apiKey, query) {
       domain: sourceInfo.domain,
       description: cleanDesc,
       image: thumb,
+      imageUrl: thumb,
       thumbnail: thumb,
       previewImage: thumb,
       thumbnailImage: thumb,
@@ -413,9 +449,10 @@ async function executeTavilySearch(apiKey, query) {
     return normalizedItem;
   });
 
-  // Filter out generic articles
+  // Filter out generic search/category pages and generic articles
   const filteredList = normalizedList.filter(item => {
     if (!item.title || !item.url) return false;
+    if (isGenericSearchPage(item.url, item.title)) return false;
     if (isGenericArticle(item.title, item.url, item.description)) return false;
     return true;
   });
@@ -426,14 +463,12 @@ async function executeTavilySearch(apiKey, query) {
   deduplicated.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
   // Group by sourceGroup into exact priority order requested by user:
-  // 1. GraphicRiver
-  // 2. Envato / ThemeForest
-  // 3. Awwwards
-  // 4. Dribbble
-  // 5. Behance
-  // 6. Other relevant websites
+  // 1. ENVATO / THEMEFOREST
+  // 2. AWWWARDS
+  // 3. DRIBBBLE
+  // 4. BEHANCE
+  // 5. OTHER
   const sourceGroupOrder = [
-    'GRAPHICRIVER',
     'ENVATO_THEMEFOREST',
     'AWWWARDS',
     'DRIBBBLE',
