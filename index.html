@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DesignPilot AI - Premium Dark Creative Workspace</title>
+  <meta name="description" content="AI-powered design research, inspiration and Figma workflows for modern product designers.">
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- =========================================================================
+         1. TOP NAVIGATION (Horizontal Header)
+         ========================================================================= -->
+    <header class="top-navbar">
+      <!-- LEFT: Logo / Wordmark -->
+      <div class="nav-left">
+        <a class="brand-logo" id="nav-brand-home" data-view="home">
+          <div class="brand-icon-box">
+            <i class="fa-solid fa-compass-drafting"></i>
+          </div>
+          <span class="brand-name">DesignPilot</span>
+          <span class="brand-badge">AI</span>
+        </a>
+      </div>
+
+      <!-- CENTER: Primary Routes -->
+      <nav class="nav-center">
+        <button class="nav-link active" id="tab-home" data-view="home">
+          <i class="fa-solid fa-house"></i> Home
+        </button>
+        <button class="nav-link" id="tab-inspiration" data-view="inspiration">
+          <i class="fa-solid fa-layer-group"></i> Inspiration
+        </button>
+        <button class="nav-link" id="tab-figma" data-view="figma">
+          <i class="fa-brands fa-figma"></i> Figma
+        </button>
+        <button class="nav-link" id="tab-projects" data-view="projects">
+          <i class="fa-solid fa-folder-open"></i> Projects
+        </button>
+      </nav>
+
+      <!-- RIGHT: Search, AI Toggle, Settings -->
+      <div class="nav-right">
+        <button class="cmd-k-trigger" id="btn-global-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Search</span>
+          <span class="kbd-badge">⌘K</span>
+        </button>
+
+        <button class="ai-toggle-btn" id="btn-toggle-ai">
+          <i class="fa-solid fa-sparkles"></i> AI ✦
+        </button>
+
+        <button class="settings-icon-btn" title="Settings">
+          <i class="fa-solid fa-sliders"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- WORKSPACE WRAPPER -->
+    <div class="workspace-wrapper" id="workspace-wrapper">
+      
+      <!-- MAIN VIEWPORT CONTAINER -->
+      <main class="main-viewport">
+
+        <!-- =====================================================================
+             VIEW 1: HOMEPAGE (Sections 2 & 8)
+             ===================================================================== -->
+        <section class="view-page active" id="page-home">
+          <div class="home-hero">
+            <h1>Design better. Discover faster.</h1>
+            <p>AI-powered design research, inspiration and Figma workflows for modern product designers.</p>
+
+            <!-- Large Central Search Field -->
+            <div class="hero-search-container">
+              <i class="fa-solid fa-magnifying-glass hero-search-icon"></i>
+              <input 
+                type="text" 
+                class="hero-search-input" 
+                id="home-search-input"
+                placeholder="What are you designing today?"
+                autocomplete="off"
+              >
+              <button class="hero-search-btn" id="home-search-btn">
+                <span>Explore</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <!-- Example Suggestions -->
+            <div class="hero-suggestions">
+              <span class="suggestion-label">Suggestions:</span>
+              <button class="suggestion-chip" data-query="Footwear Ecommerce">Footwear Ecommerce</button>
+              <button class="suggestion-chip" data-query="SaaS Dashboard">SaaS Dashboard</button>
+              <button class="suggestion-chip" data-query="Fintech App">Fintech App</button>
+              <button class="suggestion-chip" data-query="Fashion Website">Fashion Website</button>
+              <button class="suggestion-chip" data-query="AI Landing Page">AI Landing Page</button>
+              <button class="suggestion-chip" data-query="Mobile Banking App">Mobile Banking App</button>
+            </div>
+          </div>
+
+          <!-- Featured Inspiration Visual Grid -->
+          <div class="home-section-header">
+            <h2 class="home-section-title">Featured Inspiration</h2>
+            <a class="home-section-link" id="link-view-all-inspiration">
+              <span>View all inspirations</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </a>
+          </div>
+
+          <div class="design-grid" id="home-featured-grid">
+            <!-- Populated via home.js -->
+          </div>
+        </section>
+
+        <!-- =====================================================================
+             VIEW 2: INSPIRATION PAGE (Section 5 & Phase 2 Search)
+             ===================================================================== -->
+        <section class="view-page" id="page-inspiration">
+          <div class="inspiration-page-header">
+            <h2 style="font-size: 26px; font-weight: 800; margin-bottom: 16px; color: var(--text-heading);">Find Design Inspiration</h2>
+            
+            <div class="insp-search-bar">
+              <i class="fa-solid fa-magnifying-glass" style="color: #777c85; font-size: 16px;"></i>
+              <input 
+                type="text" 
+                class="insp-search-input" 
+                id="insp-page-search-input"
+                placeholder="Search websites, interfaces and design inspiration..."
+              >
+              
+              <!-- Source Filter Dropdown (Section 7) -->
+              <select class="select-source-filter" id="insp-source-select" title="Filter by Source">
+                <option value="All Sources">All Sources</option>
+                <option value="Awwwards">Awwwards</option>
+                <option value="Behance">Behance</option>
+                <option value="Dribbble">Dribbble</option>
+                <option value="Envato">Envato</option>
+              </select>
+
+              <button class="hero-search-btn" id="insp-page-search-btn" style="padding: 8px 18px; font-size: 13px;">
+                Search
+              </button>
+            </div>
+
+            <!-- Recent Searches History Bar (Section 11) -->
+            <div class="recent-searches-bar" id="recent-searches-container" style="margin-top: 12px;"></div>
+
+            <!-- Filter Chips (Section 6) -->
+            <div class="insp-filter-row" id="insp-filter-chips">
+              <button class="insp-chip active" data-filter="All">All</button>
+              <button class="insp-chip" data-filter="Luxury">Luxury</button>
+              <button class="insp-chip" data-filter="Minimal">Minimal</button>
+              <button class="insp-chip" data-filter="Fashion">Fashion</button>
+              <button class="insp-chip" data-filter="Ecommerce">Ecommerce</button>
+              <button class="insp-chip" data-filter="Mobile">Mobile</button>
+              <button class="insp-chip" data-filter="Landing Page">Landing Page</button>
+              <button class="insp-chip" data-filter="Product Page">Product Page</button>
+              <button class="insp-chip" data-filter="Saved"><i class="fa-solid fa-bookmark" style="margin-right: 4px;"></i> Saved</button>
+            </div>
+          </div>
+
+          <!-- Active Query Header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div style="font-size: 15px; font-weight: 700; color: var(--text-heading);" id="insp-active-title">Footwear Ecommerce</div>
+            <span style="font-size: 13px; color: var(--text-muted);" id="insp-count-text">Loading inspiration...</span>
+          </div>
+
+          <!-- 3-4 Column Visual Grid -->
+          <div class="design-grid" id="inspiration-grid-container">
+            <!-- Populated via inspiration.js -->
+          </div>
+        </section>
+
+        <!-- =====================================================================
+             VIEW 3: FIGMA TAB (Section 12)
+             ===================================================================== -->
+        <section class="view-page" id="page-figma">
+          <div class="figma-hero-card">
+            <div class="figma-hero-content">
+              <h2>Bring your design system into Figma.</h2>
+              <p>Connect your design research, UI components, and design tokens directly into native Figma documents.</p>
+            </div>
+          </div>
+
+          <!-- 3 Visual Workflow Steps -->
+          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--text-heading);">Figma Component Workflow</h3>
+          <div class="workflow-grid">
+            <div class="workflow-step-card">
+              <div class="workflow-step-num">01</div>
+              <h4 class="workflow-step-title">Save components</h4>
+              <p class="workflow-step-desc">Select reusable buttons, cards, or inputs from your research canvas.</p>
+            </div>
+            <div class="workflow-step-card">
+              <div class="workflow-step-num">02</div>
+              <h4 class="workflow-step-title">Store in DesignPilot</h4>
+              <p class="workflow-step-desc">Organize components across your active product design projects.</p>
+            </div>
+            <div class="workflow-step-card">
+              <div class="workflow-step-num">03</div>
+              <h4 class="workflow-step-title">Insert into another Figma file</h4>
+              <p class="workflow-step-desc">Open the DesignPilot Figma Plugin to place editable vectors directly onto canvas.</p>
+            </div>
+          </div>
+
+          <!-- My Components Section -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h3 style="font-size: 18px; font-weight: 700; color: var(--text-heading);">My Components</h3>
+            <span style="font-size: 13px; color: var(--text-muted);">5 Demo Components</span>
+          </div>
+
+          <div class="figma-components-grid" id="figma-components-grid">
+            <!-- Populated via figma.js -->
+          </div>
+        </section>
+
+        <!-- =====================================================================
+             VIEW 4: PROJECTS PAGE (Section 13)
+             ===================================================================== -->
+        <section class="view-page" id="page-projects">
+          <div style="margin-bottom: 32px;">
+            <h2 style="font-size: 26px; font-weight: 800; margin-bottom: 6px; color: var(--text-heading);">Active Design Projects</h2>
+            <p style="color: var(--text-secondary); font-size: 14px;">Manage design research, inspiration references, components, and AI notes.</p>
+          </div>
+
+          <div class="projects-grid" id="projects-grid-container">
+            <!-- Populated via projects.js -->
+          </div>
+        </section>
+
+      </main>
+
+      <!-- =======================================================================
+           COLLAPSIBLE RIGHT-SIDE AI PANEL (Section 7)
+           ======================================================================= -->
+      <aside class="ai-side-panel" id="ai-side-panel">
+        <div class="ai-panel-header">
+          <div class="ai-panel-title">
+            <i class="fa-solid fa-sparkles" style="color: var(--primary-color);"></i> AI Assistant
+          </div>
+          <div class="ai-panel-controls">
+            <button class="ai-ctrl-btn" id="btn-ai-new-chat" title="New Chat"><i class="fa-solid fa-plus"></i> New Chat</button>
+            <button class="ai-ctrl-btn" id="btn-ai-min" title="Minimize"><i class="fa-solid fa-minus"></i></button>
+            <button class="ai-ctrl-btn" id="btn-ai-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+
+        <!-- Context Indicator Box (Section 7) -->
+        <div class="ai-context-indicator" id="ai-context-indicator">
+          <span class="ai-context-dot"></span>
+          <span id="ai-context-text">Context: Footwear Ecommerce</span>
+        </div>
+
+        <!-- Chat Message Log -->
+        <div class="ai-messages-list" id="ai-messages-list">
+          <div class="ai-msg assistant">
+            Hello! I am your AI Design Assistant. Ask me about UI/UX layout patterns, Figma design systems, or WCAG accessibility standards.
+          </div>
+        </div>
+
+        <!-- Chat Input Field -->
+        <div class="ai-input-area">
+          <div class="ai-input-wrapper">
+            <input 
+              type="text" 
+              class="ai-input-field" 
+              id="ai-panel-input" 
+              placeholder="Ask about UI/UX, Figma or product design..."
+            >
+            <button class="ai-send-btn" id="btn-ai-send">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- =======================================================================
+         GLOBAL SEARCH MODAL (CMD+K)
+         ======================================================================= -->
+    <div class="modal-overlay" id="cmdk-modal-overlay">
+      <div class="cmdk-card">
+        <div class="cmdk-input-row">
+          <i class="fa-solid fa-magnifying-glass" style="color: #777c85;"></i>
+          <input type="text" class="cmdk-input" id="cmdk-input-field" placeholder="Search projects, inspirations, components, chats..." autofocus>
+          <span class="kbd-badge">ESC</span>
+        </div>
+        <div class="cmdk-results" id="cmdk-results-list">
+          <div class="cmdk-item" data-action="search" data-target="footwear">
+            <span><i class="fa-solid fa-shoe-prints" style="margin-right: 8px; color: var(--primary-color);"></i> Footwear Ecommerce Inspiration</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Inspiration</span>
+          </div>
+          <div class="cmdk-item" data-action="search" data-target="saas">
+            <span><i class="fa-solid fa-chart-pie" style="margin-right: 8px; color: var(--primary-color);"></i> SaaS Analytics Dashboard</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Inspiration</span>
+          </div>
+          <div class="cmdk-item" data-action="nav" data-target="figma">
+            <span><i class="fa-brands fa-figma" style="margin-right: 8px; color: var(--primary-color);"></i> Figma Component Library</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Figma</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSPIRATION DETAIL MODAL -->
+    <div class="modal-overlay" id="detail-modal-overlay">
+      <div class="cmdk-card" style="width: 720px;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
+          <h3 style="font-size: 17px; font-weight: 700; color: var(--text-heading);" id="detail-card-title">Inspiration Detail</h3>
+          <button class="ai-ctrl-btn" id="btn-close-detail-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding: 24px; max-height: 80vh; overflow-y: auto;" id="detail-modal-body">
+          <!-- Populated via app.js -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PHASE 2 MODULAR SCRIPTS -->
+  <script src="js/data.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/provider.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/inspiration.js"></script>
+  <script src="js/ai-panel.js"></script>
+  <script src="js/figma.js"></script>
+  <script src="js/projects.js"></script>
+  <script src="js/cmdk.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
