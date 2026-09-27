@@ -1235,3 +1235,59 @@ body {
   .home-hero h1 { font-size: 32px; }
   .view-page { padding: 24px 16px; }
 }
+
+/* Source Group Section Styles */
+.source-group-section {
+  margin-bottom: 36px;
+}
+
+.source-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.source-group-title-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-group-title-text {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-heading);
+  letter-spacing: 0.5px;
+}
+
+.source-group-count-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.view-all-source-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary-color);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s ease;
+}
+
+.view-all-source-btn:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+

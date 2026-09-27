@@ -306,9 +306,10 @@
 
         return {
           items: items,
+          groupedResults: data.groupedResults || {},
           isLiveConfigured: true,
           searchMeta: {
-            provider: 'Tavily Web Search Engine',
+            provider: 'Tavily Source-Prioritized Engine',
             normalizedQuery: query
           }
         };
@@ -316,6 +317,7 @@
         console.error('[DesignPilot Provider] Search endpoint error:', err);
         return {
           items: [],
+          groupedResults: {},
           error: 'Search temporarily unavailable.',
           message: err.message
         };

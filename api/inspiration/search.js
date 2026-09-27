@@ -7,10 +7,10 @@ const searchCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
 // -------------------------------------------------------------------------
-// 1. SOURCE CLASSIFICATION & PRIORITY RESOLVER
+// 1. EXACT SOURCE CLASSIFICATION & PRIORITY RESOLVER
 // -------------------------------------------------------------------------
 function classifySource(targetUrl, title = '', content = '') {
-  if (!targetUrl) return { sourceName: 'Other Inspiration', sourceCategory: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
+  if (!targetUrl) return { sourceType: 'OTHER_INSPIRATION', sourceName: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
   
   try {
     const parsed = new URL(targetUrl);
@@ -18,54 +18,59 @@ function classifySource(targetUrl, title = '', content = '') {
     const pathname = parsed.pathname.toLowerCase();
     const fullText = `${title} ${content} ${pathname}`.toLowerCase();
 
-    // 1. Envato / ThemeForest
-    if (hostname.includes('themeforest.net') || hostname.includes('elements.envato.com') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
-      return { sourceName: 'Envato', sourceCategory: 'Envato', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
+    // 1. ThemeForest
+    if (hostname.includes('themeforest.net')) {
+      return { sourceType: 'THEMEFOREST', sourceName: 'ThemeForest', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
     }
 
-    // 2. GraphicRiver
+    // 2. Envato Elements & Envato Ecosystem
+    if (hostname.includes('elements.envato.com') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
+      return { sourceType: 'ENVATO', sourceName: 'Envato Elements', dotClass: 'dot-envato', domain: hostname, priorityWeight: 98 };
+    }
+
+    // 3. GraphicRiver
     if (hostname.includes('graphicriver.net')) {
-      return { sourceName: 'GraphicRiver', sourceCategory: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname, priorityWeight: 85 };
+      return { sourceType: 'GRAPHICRIVER', sourceName: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname, priorityWeight: 95 };
     }
 
-    // 3. Awwwards
+    // 4. Awwwards
     if (hostname.includes('awwwards.com')) {
-      return { sourceName: 'Awwwards', sourceCategory: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 95 };
+      return { sourceType: 'AWWWARDS', sourceName: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 92 };
     }
 
-    // 4. Dribbble
+    // 5. Dribbble
     if (hostname.includes('dribbble.com')) {
-      return { sourceName: 'Dribbble', sourceCategory: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname, priorityWeight: 90 };
+      return { sourceType: 'DRIBBBLE', sourceName: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname, priorityWeight: 90 };
     }
 
-    // 5. Behance
+    // 6. Behance
     if (hostname.includes('behance.net')) {
-      return { sourceName: 'Behance', sourceCategory: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 90 };
+      return { sourceType: 'BEHANCE', sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 90 };
     }
 
-    // 6. Reputable Inspiration Sites
+    // 7. Reputable Inspiration Sites
     const knownInspirationDomains = [
       'siteinspire.com', 'lapa.ninja', 'saasui.design', 'saasinterface.com', 'nicelydone.club',
       'saasframe.io', 'landingfolio.com', 'pageflows.com', 'godly.website', 'onepagelove.com',
       'dark.design', 'mobbin.com', 'land-book.com', 'webflow.com', 'figma.com'
     ];
     if (knownInspirationDomains.some(d => hostname.includes(d))) {
-      return { sourceName: 'Other Inspiration', sourceCategory: 'Other Inspiration', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 75 };
+      return { sourceType: 'OTHER_INSPIRATION', sourceName: 'Other Inspiration', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 75 };
     }
 
-    // 7. Check if Article/Collection vs Live Website
+    // 8. Check if Article/Collection vs Live Website
     const articleKeywords = ['top 10', 'top 15', 'top 20', 'top 25', 'top 30', 'top 50', 'best ', 'examples for', 'ideas for', 'how to', 'blog', 'article', 'guide', 'listicle'];
     const isArticle = articleKeywords.some(kw => fullText.includes(kw)) || pathname.includes('/blog/') || pathname.includes('/articles/');
 
     if (isArticle) {
-      return { sourceName: 'Article/Collection', sourceCategory: 'Article/Collection', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 50 };
+      return { sourceType: 'ARTICLE', sourceName: 'Articles & Collections', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 50 };
     }
 
-    // 8. Live Product / E-commerce / Company Website
-    return { sourceName: 'Live Website', sourceCategory: 'Live Websites', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
+    // 9. Real Brand / E-commerce / Product Website
+    return { sourceType: 'LIVE_WEBSITE', sourceName: 'Live Websites', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
 
   } catch (e) {
-    return { sourceName: 'Other Inspiration', sourceCategory: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
+    return { sourceType: 'OTHER_INSPIRATION', sourceName: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
   }
 }
 
@@ -113,7 +118,7 @@ function calculateRelevanceScore(item, query, sourceInfo) {
   const sourceWeight = sourceInfo.priorityWeight || 70;
   score += Math.round(((sourceWeight - 40) / 60) * 25);
 
-  // 3. Design/Inspiration relevance (+20 max)
+  // 3. Design relevance (+20 max)
   const designKw = ['ui', 'ux', 'template', 'design', 'storefront', 'dashboard', 'showcase', 'landing page', 'ecommerce', 'app', 'website', 'shot', 'project'];
   let designCount = 0;
   designKw.forEach(kw => { if (fullText.includes(kw)) designCount++; });
@@ -156,24 +161,38 @@ function inferCategory(query, title, content) {
 }
 
 // -------------------------------------------------------------------------
-// 5. DEDUPLICATION ENGINE
+// 5. DEDUPLICATION ENGINE & URL NORMALIZATION
 // -------------------------------------------------------------------------
 function deduplicateResults(list) {
   const seen = new Set();
   const merged = [];
 
   list.forEach(item => {
-    let cleanUrl = (item.url || '').toLowerCase().trim();
-    try {
-      const u = new URL(cleanUrl);
-      cleanUrl = `${u.origin}${u.pathname}`.replace(/\/$/, '');
-    } catch (e) {
-      cleanUrl = cleanUrl.replace(/\/$/, '');
-    }
+    let rawUrl = (item.url || '').toLowerCase().trim();
+    if (!rawUrl) return;
 
-    if (cleanUrl && !seen.has(cleanUrl)) {
-      seen.add(cleanUrl);
-      merged.push(item);
+    try {
+      const u = new URL(rawUrl);
+      // Remove common tracking parameters
+      const cleanParams = new URLSearchParams();
+      u.searchParams.forEach((val, key) => {
+        if (!key.startsWith('utm_') && key !== 'ref' && key !== 'srsltid' && key !== 'fbclid') {
+          cleanParams.append(key, val);
+        }
+      });
+      const paramStr = cleanParams.toString() ? '?' + cleanParams.toString() : '';
+      const normalizedKey = `${u.origin}${u.pathname}`.replace(/\/$/, '') + paramStr;
+
+      if (!seen.has(normalizedKey)) {
+        seen.add(normalizedKey);
+        merged.push(item);
+      }
+    } catch (e) {
+      const normalizedKey = rawUrl.replace(/\/$/, '');
+      if (!seen.has(normalizedKey)) {
+        seen.add(normalizedKey);
+        merged.push(item);
+      }
     }
   });
 
@@ -243,13 +262,13 @@ async function executeTavilySearch(apiKey, query) {
   const cached = searchCache.get(normalizedQuery);
   if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
     console.log(`[Tavily Search] Cache hit for query: "${normalizedQuery}"`);
-    return cached.results;
+    return cached.payload;
   }
 
   const expandedQueries = expandQuery(query);
   console.log(`[Tavily Search] Executing ${expandedQueries.length} targeted search queries for: "${query}"`);
 
-  // Run targeted queries in parallel
+  // Run targeted queries in parallel with fault tolerance (Promise.allSettled)
   const responses = await Promise.allSettled(
     expandedQueries.map(q => callTavilyApi(apiKey, q))
   );
@@ -266,7 +285,7 @@ async function executeTavilySearch(apiKey, query) {
         returnedImages.push(...res.value.images);
       }
     } else if (res.status === 'rejected') {
-      console.warn('[Tavily Search] Query execution failed:', res.reason ? res.reason.message : res.reason);
+      console.warn('[Tavily Search] Query execution failed non-blockingly:', res.reason ? res.reason.message : res.reason);
     }
   });
 
@@ -291,7 +310,7 @@ async function executeTavilySearch(apiKey, query) {
       sourceUrl: itemUrl,
       source: sourceInfo.sourceName,
       sourceName: sourceInfo.sourceName,
-      sourceCategory: sourceInfo.sourceCategory,
+      sourceType: sourceInfo.sourceType,
       dotClass: sourceInfo.dotClass,
       domain: sourceInfo.domain,
       description: item.content || item.snippet || '',
@@ -309,16 +328,44 @@ async function executeTavilySearch(apiKey, query) {
 
   const deduplicated = deduplicateResults(normalizedList);
   
-  // Sort by calculated relevance score descending
+  // Sort all results by calculated relevance score descending
   deduplicated.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+  // Group by sourceType into ordered sections
+  const sourceTypeOrder = [
+    'THEMEFOREST',
+    'ENVATO',
+    'GRAPHICRIVER',
+    'AWWWARDS',
+    'DRIBBBLE',
+    'BEHANCE',
+    'OTHER_INSPIRATION',
+    'LIVE_WEBSITE',
+    'ARTICLE'
+  ];
+
+  const grouped = {};
+  sourceTypeOrder.forEach(st => grouped[st] = []);
+
+  deduplicated.forEach(item => {
+    const st = item.sourceType || 'OTHER_INSPIRATION';
+    if (!grouped[st]) grouped[st] = [];
+    grouped[st].push(item);
+  });
+
+  const payload = {
+    total: deduplicated.length,
+    results: deduplicated,
+    groupedResults: grouped
+  };
 
   // Store in cache
   searchCache.set(normalizedQuery, {
     timestamp: Date.now(),
-    results: deduplicated
+    payload: payload
   });
 
-  return deduplicated;
+  return payload;
 }
 
 // -------------------------------------------------------------------------
@@ -378,23 +425,25 @@ module.exports = async function handler(req, res) {
     }
 
     // Run Targeted Multi-Query Tavily Search
-    const allResults = await executeTavilySearch(apiKey, query);
+    const searchOutcome = await executeTavilySearch(apiKey, query);
+    let allResults = searchOutcome.results || [];
 
     // Apply Filter by Source if specified in request
     let filteredResults = allResults;
     if (filters.source && filters.source !== 'All Sources') {
-      const srcFilter = filters.source.toLowerCase();
+      const srcFilter = filters.source.toLowerCase().trim();
       filteredResults = filteredResults.filter(item => {
-        const itemCategory = (item.sourceCategory || item.sourceName || item.source || '').toLowerCase();
+        const itemType = (item.sourceType || '').toLowerCase();
         const itemSrc = (item.sourceName || item.source || '').toLowerCase();
         
-        if (srcFilter === 'envato') return itemCategory === 'envato';
-        if (srcFilter === 'awwwards') return itemCategory === 'awwwards';
-        if (srcFilter === 'dribbble') return itemCategory === 'dribbble';
-        if (srcFilter === 'behance') return itemCategory === 'behance';
-        if (srcFilter === 'graphicriver') return itemCategory === 'graphicriver';
-        if (srcFilter === 'other inspiration') return itemCategory === 'other inspiration';
-        if (srcFilter === 'live websites') return itemCategory === 'live websites';
+        if (srcFilter === 'themeforest') return itemType === 'themeforest';
+        if (srcFilter === 'envato elements') return itemType === 'envato';
+        if (srcFilter === 'graphicriver') return itemType === 'graphicriver';
+        if (srcFilter === 'awwwards') return itemType === 'awwwards';
+        if (srcFilter === 'dribbble') return itemType === 'dribbble';
+        if (srcFilter === 'behance') return itemType === 'behance';
+        if (srcFilter === 'other inspiration') return itemType === 'other_inspiration';
+        if (srcFilter === 'live websites') return itemType === 'live_website';
 
         return itemSrc.includes(srcFilter);
       });
@@ -409,6 +458,7 @@ module.exports = async function handler(req, res) {
       normalizedQuery: (query || '').toLowerCase().trim(),
       total: filteredResults.length,
       returnedCount: finalResults.length,
+      groupedResults: searchOutcome.groupedResults || {},
       results: finalResults
     });
 
