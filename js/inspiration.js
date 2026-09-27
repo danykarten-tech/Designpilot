@@ -125,7 +125,7 @@ function renderRecentSearches(state) {
 function renderCardHtml(item) {
   const isSaved = window.StorageManager ? window.StorageManager.isSaved(item.id) : false;
   
-  const displayImgSrc = item.previewImage || item.thumbnailImage;
+  const displayImgSrc = item.previewImage || item.thumbnailImage || item.thumbnail || item.image;
   const safeTitle = escapeHtml(item.title || 'Design Inspiration');
   const safeSource = escapeHtml(item.sourceName || item.source || 'Web');
   const safeCategory = escapeHtml(item.category || 'Website');
@@ -133,16 +133,28 @@ function renderCardHtml(item) {
   const dotClass = escapeHtml(item.dotClass || 'dot-awwwards');
   const score = item.relevanceScore || 85;
 
-  const targetLink = item.originalUrl || item.url || item.sourceUrl;
+  const originalLink = item.originalUrl || item.url || item.sourceUrl;
+  const demoLink = item.demoUrl;
+  const hasLiveDemo = item.hasLiveDemo && isValidUrl(demoLink);
+
   let actionButtonsHtml = '';
-  if (isValidUrl(targetLink)) {
-    actionButtonsHtml = `
-      <a href="${escapeHtml(targetLink)}" target="_blank" rel="noopener noreferrer" class="btn-original-link">
+  
+  if (hasLiveDemo) {
+    actionButtonsHtml += `
+      <a href="${escapeHtml(demoLink)}" target="_blank" rel="noopener noreferrer" class="btn-demo-link">
+        Open Live Demo ↗
+      </a>
+    `;
+  }
+
+  if (isValidUrl(originalLink)) {
+    actionButtonsHtml += `
+      <a href="${escapeHtml(originalLink)}" target="_blank" rel="noopener noreferrer" class="btn-original-link ${hasLiveDemo ? 'secondary' : ''}">
         View Original ↗
       </a>
     `;
-  } else {
-    actionButtonsHtml = `
+  } else if (!hasLiveDemo) {
+    actionButtonsHtml += `
       <button disabled class="btn-original-link disabled" title="Link unavailable">
         Link unavailable
       </button>
@@ -165,7 +177,7 @@ function renderCardHtml(item) {
         
         <span class="card-source-tag">
           <span class="source-dot ${dotClass}"></span> ${safeSource}
-          ${item.isDemo ? '<span class="demo-tag-pill">DEMO</span>' : ''}
+          ${hasLiveDemo ? '<span class="demo-tag-pill">LIVE DEMO</span>' : ''}
         </span>
 
         <span class="relevance-badge" title="Calculated Relevance Score">
@@ -206,7 +218,7 @@ window.renderInspirationPage = async function(state) {
     <div style="padding: 24px 20px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 24px;">
       <div style="font-size: 14px; font-weight: 600; color: var(--primary-color); margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
         <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 16px;"></i>
-        <span>Searching design inspiration across Envato, GraphicRiver, Awwwards, Dribbble, Behance...</span>
+        <span>Searching design inspiration across GraphicRiver, Envato, Awwwards, Dribbble, Behance...</span>
       </div>
       <div class="design-grid">
         ${Array(4).fill(0).map(() => `
@@ -334,15 +346,15 @@ window.renderInspirationPage = async function(state) {
   }
 
   // If "All Sources" is selected, render grouped sections ordered by EXACT priority:
-  // Priority 1: Envato / ThemeForest
-  // Priority 2: GraphicRiver
+  // Priority 1: GraphicRiver
+  // Priority 2: Envato / ThemeForest
   // Priority 3: Awwwards
   // Priority 4: Dribbble
   // Priority 5: Behance
   // Priority 6: Other relevant websites
   const sectionDefinitions = [
-    { key: 'ENVATO_THEMEFOREST', title: 'Envato / ThemeForest', selectValue: 'Envato / ThemeForest', dotClass: 'dot-envato' },
     { key: 'GRAPHICRIVER', title: 'GraphicRiver', selectValue: 'GraphicRiver', dotClass: 'dot-envato' },
+    { key: 'ENVATO_THEMEFOREST', title: 'Envato / ThemeForest', selectValue: 'Envato / ThemeForest', dotClass: 'dot-envato' },
     { key: 'AWWWARDS', title: 'Awwwards', selectValue: 'Awwwards', dotClass: 'dot-awwwards' },
     { key: 'DRIBBBLE', title: 'Dribbble', selectValue: 'Dribbble', dotClass: 'dot-dribbble' },
     { key: 'BEHANCE', title: 'Behance', selectValue: 'Behance', dotClass: 'dot-behance' },
