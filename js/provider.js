@@ -1,11 +1,8 @@
 /* ==========================================================================
-   DESIGNPILOT AI - PHASE 2E: MULTI-SOURCE INSPIRATION ARCHITECTURE (js/provider.js)
+   DESIGNPILOT AI - MULTI-SOURCE PROVIDER ARCHITECTURE (js/provider.js)
    ========================================================================== */
 
 (function() {
-  // -------------------------------------------------------------------------
-  // 1. BASE PROVIDER INTERFACE & REGISTRY (Section 1)
-  // -------------------------------------------------------------------------
   class InspirationProvider {
     constructor(name) {
       this.name = name || 'BaseProvider';
@@ -17,7 +14,7 @@
     }
   }
 
-  // Provider Registry (Section 1)
+  // Provider Registry (Phase 3)
   class InspirationProviderRegistry {
     constructor() {
       this.providers = [];
@@ -31,16 +28,14 @@
 
     async searchAll(query, options = {}) {
       const limit = options.limit || 36;
-      const providerStats = {};
+      const providerStats = [];
 
-      // Execute all registered providers in parallel (Section 21 & 22)
       const promises = this.providers.map(p => {
         return p.search(query, options).then(res => {
-          providerStats[p.name] = (res.items || []).length;
+          providerStats.push({ name: p.name, status: 'success', count: (res.items || []).length });
           return res.items || [];
         }).catch(err => {
-          console.warn(`[DesignPilot Registry] Provider ${p.name} search failed:`, err);
-          providerStats[p.name] = 0;
+          providerStats.push({ name: p.name, status: 'failed', count: 0, reason: err.message });
           return [];
         });
       });
@@ -49,16 +44,15 @@
       let mergedItems = [];
       resultsArrays.forEach(arr => mergedItems.push(...arr));
 
-      // 1. Deduplication (Section 10)
       mergedItems = mergeAndDeduplicateResults(mergedItems);
 
-      // 2. Ranking (Section 11)
       mergedItems.forEach(item => {
-        item.relevanceScore = calculateRelevance(item, query);
+        if (!item.relevanceScore) {
+          item.relevanceScore = calculateRelevance(item, query);
+        }
       });
       mergedItems.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-      // 3. Slice to target count (Section 9)
       const finalResults = mergedItems.slice(0, limit);
 
       return {
@@ -72,9 +66,6 @@
     }
   }
 
-  // -------------------------------------------------------------------------
-  // 2. RELEVANCE SCORE CALCULATOR (Section 11)
-  // -------------------------------------------------------------------------
   function calculateRelevance(result, query) {
     if (!query || query.trim() === '') return 85;
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -113,9 +104,6 @@
     return Math.min(99, Math.max(45, score));
   }
 
-  // -------------------------------------------------------------------------
-  // 3. MERGING & DEDUPLICATION (Section 10)
-  // -------------------------------------------------------------------------
   function mergeAndDeduplicateResults(resultsList) {
     const seenUrls = new Set();
     const merged = [];
@@ -139,9 +127,7 @@
     return merged;
   }
 
-  // -------------------------------------------------------------------------
-  // 4. DEMO INSPIRATION PROVIDER (Section 1 & 20)
-  // -------------------------------------------------------------------------
+  // Demo Inspiration Provider (Phase 3 & 20)
   class DemoInspirationProvider extends InspirationProvider {
     constructor(data) {
       super('DemoInspirationProvider');
@@ -165,7 +151,6 @@
         searchMeta.normalizedQuery = outcome.intent.normalizedQuery;
       }
 
-      // Category Chip Filter
       if (filters.category && filters.category !== 'All') {
         if (filters.category === 'Saved') {
           const savedIds = window.StorageManager ? window.StorageManager.getSavedIds() : [];
@@ -180,7 +165,6 @@
         }
       }
 
-      // Source Filter
       if (filters.source && filters.source !== 'All Sources') {
         items = items.filter(item => (item.sourceName || item.source || '').toLowerCase() === filters.source.toLowerCase());
       }
@@ -192,16 +176,13 @@
     }
   }
 
-  // -------------------------------------------------------------------------
-  // 5. WEB SEARCH PROVIDER ABSTRACTION (Section 3 & 15)
-  // -------------------------------------------------------------------------
+  // Web Search Provider Abstraction (Phase 8)
   class WebSearchProvider extends InspirationProvider {
     constructor() {
       super('WebSearchProvider');
     }
 
     async search(query, filters = {}) {
-      // General Web Search Discovery
       if (window.DESIGNPILOT_DATA && Array.isArray(window.DESIGNPILOT_DATA.INSPIRATIONS)) {
         const webItems = window.DESIGNPILOT_DATA.INSPIRATIONS.filter(i => 
           i.sourceName === 'Web' || i.sourceName === 'Awwwards' || i.sourceName === 'Behance' || i.sourceName === 'Dribbble'
@@ -223,9 +204,7 @@
     }
   }
 
-  // -------------------------------------------------------------------------
-  // 6. ENVATO PROVIDER (Section 4)
-  // -------------------------------------------------------------------------
+  // Envato Provider (Phase 4)
   class EnvatoProvider extends InspirationProvider {
     constructor() {
       super('EnvatoProvider');
@@ -236,7 +215,7 @@
         const res = await fetch('/api/inspiration/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, filters, provider: 'envato' })
+          body: JSON.stringify({ query, filters, limit: 36 })
         });
         if (!res.ok) return { items: [] };
         const data = await res.json();
@@ -247,9 +226,7 @@
     }
   }
 
-  // -------------------------------------------------------------------------
-  // 7. MULTI-SOURCE LIVE SEARCH PROVIDER (Orchestrator)
-  // -------------------------------------------------------------------------
+  // Live Server Search Provider (Phase 3 & 21: Strict No Silent Demo Fallback)
   class LiveSearchProvider extends InspirationProvider {
     constructor() {
       super('LiveSearchProvider');
@@ -268,7 +245,38 @@
         }
 
         const data = await res.json();
-        console.log('[DesignPilot Provider] Multi-source search response:', data);
+        console.log('[DesignPilot Provider] Search response:', data);
+
+        // Explicit Demo Mode
+        if (data.status === 'demo_mode') {
+          if (window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
+            const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
+            return demoProv.search(query, filters);
+          }
+        }
+
+        // Strict Unconfigured Error handling (Phase 21: No Silent Fallback)
+        if (data.status === 'unconfigured') {
+          return {
+            items: [],
+            error: 'Live search unavailable',
+            message: data.message || 'ENVATO_API_TOKEN environment variable is not configured on server.',
+            isLiveConfigured: false,
+            searchMeta: { provider: 'LiveSearchProvider' },
+            providersStatus: data.providers || []
+          };
+        }
+
+        if (data.status === 'error') {
+          return {
+            items: [],
+            error: 'Inspiration search unavailable',
+            message: data.message,
+            isLiveConfigured: true,
+            searchMeta: { provider: 'LiveSearchProvider' },
+            providersStatus: data.providers || []
+          };
+        }
 
         let items = data.results || [];
 
@@ -288,31 +296,25 @@
           }
         }
 
-        // Fallback to Demo Dataset if 0 items returned
-        if (items.length === 0 && window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
-          const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
-          return demoProv.search(query, filters);
-        }
+        items.forEach(item => {
+          if (!item.relevanceScore) item.relevanceScore = calculateRelevance(item, query);
+        });
+        items.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
         return {
           items: items,
-          isLiveConfigured: data.isLiveConfigured !== false,
+          isLiveConfigured: true,
           searchMeta: {
             provider: 'Multi-Source Engine',
             normalizedQuery: query,
-            providersUsed: data.providers || {}
+            providersUsed: data.providers || []
           }
         };
       } catch (err) {
-        console.warn('[DesignPilot Provider] Endpoint fallback to Demo:', err);
-        if (window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
-          const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
-          return demoProv.search(query, filters);
-        }
-
+        console.error('[DesignPilot Provider] Search endpoint error:', err);
         return {
           items: [],
-          error: 'Inspiration search is temporarily unavailable.',
+          error: 'Inspiration search unavailable',
           message: err.message,
           searchMeta: { provider: 'LiveSearchProvider' }
         };
@@ -322,13 +324,13 @@
 
   // Documented Provider Stub Classes
   class AwwwardsProvider extends InspirationProvider {
-    constructor() { super('AwwwardsProvider'); this.status = 'Integration unavailable'; }
+    constructor() { super('AwwwardsProvider'); this.status = 'Not directly connected (No public API)'; }
   }
   class BehanceProvider extends InspirationProvider {
-    constructor() { super('BehanceProvider'); this.status = 'Integration unavailable'; }
+    constructor() { super('BehanceProvider'); this.status = 'Not directly connected'; }
   }
   class DribbbleProvider extends InspirationProvider {
-    constructor() { super('DribbbleProvider'); this.status = 'Integration unavailable'; }
+    constructor() { super('DribbbleProvider'); this.status = 'Not directly connected'; }
   }
 
   window.calculateRelevance = calculateRelevance;

@@ -7,7 +7,6 @@ window.initInspiration = function(state) {
   const inspBtn = document.getElementById('insp-page-search-btn');
   const sourceSelect = document.getElementById('insp-source-select');
 
-  // Default Provider
   if (!state.provider) {
     state.provider = new window.LiveSearchProvider();
   }
@@ -59,7 +58,7 @@ window.initInspiration = function(state) {
   window.renderInspirationPage(state);
 };
 
-// Strict URL Validator
+// Strict URL Validator (Phase 18)
 function isValidUrl(urlStr) {
   if (!urlStr || typeof urlStr !== 'string' || urlStr.trim() === '') return false;
   const clean = urlStr.trim().toLowerCase();
@@ -119,7 +118,7 @@ function renderRecentSearches(state) {
   });
 }
 
-// Render Main Inspiration Grid with Visit Website ↗ & View Source ↗ Buttons
+// Render Main Inspiration Grid
 window.renderInspirationPage = async function(state) {
   const grid = document.getElementById('inspiration-grid-container');
   const activeTitle = document.getElementById('insp-active-title');
@@ -127,7 +126,7 @@ window.renderInspirationPage = async function(state) {
 
   if (!grid) return;
 
-  // 1. Loading State Setup
+  // 1. Loading State (Phase 2 & 18)
   grid.style.display = 'grid';
   grid.innerHTML = Array(4).fill(0).map(() => `
     <div class="design-card skeleton-card">
@@ -141,7 +140,7 @@ window.renderInspirationPage = async function(state) {
   `).join('');
 
   if (activeTitle) activeTitle.textContent = state.searchQuery || 'Design Inspiration';
-  if (countText) countText.textContent = 'Searching inspiration provider...';
+  if (countText) countText.textContent = 'Searching inspiration sources...';
 
   let response = { items: [], searchMeta: {} };
   if (!state.provider) {
@@ -149,26 +148,25 @@ window.renderInspirationPage = async function(state) {
   }
 
   try {
-    // 2. Execute Search
     response = await state.provider.search(state.searchQuery, {
       category: state.activeFilter || 'All',
       source: state.activeSource || 'All Sources'
     });
   } catch (err) {
-    console.warn('[DesignPilot Provider] Provider search error:', err);
+    console.warn('[DesignPilot Provider] Search exception:', err);
     response = {
       items: [],
-      error: 'Inspiration search is temporarily unavailable.',
+      error: 'Inspiration search unavailable',
       message: err.message
     };
   } finally {
-    // Ensure loading state terminates
+    // Guarantees loading state always terminates (Phase 2)
   }
 
-  // 3. Handle Error State
+  // 2. Error State Handling (Phase 2 & 21)
   if (response.error) {
     grid.style.display = 'block';
-    if (countText) countText.textContent = 'Inspiration search is temporarily unavailable.';
+    if (countText) countText.textContent = 'Inspiration search unavailable';
 
     grid.innerHTML = `
       <div class="no-results-box" style="border: 1px dashed var(--border-color); padding: 36px 20px; text-align: center; border-radius: var(--radius-lg); background: var(--bg-surface);">
@@ -177,12 +175,12 @@ window.renderInspirationPage = async function(state) {
         </div>
         <h3 style="font-size: 18px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px;">${response.error}</h3>
         <p style="color: var(--text-secondary); font-size: 14px; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
-          ${response.message || 'Please check your connection or try again shortly.'}
+          ${response.message || 'Please configure server environment tokens or try again shortly.'}
         </p>
 
         <div class="suggested-searches-list" style="margin-top: 16px;">
           <button class="suggestion-chip switch-demo-chip" style="background: var(--primary-color); color: #fff; border: none; font-weight: 600;">
-            <i class="fa-solid fa-flask" style="margin-right: 6px;"></i> View Demo Results
+            <i class="fa-solid fa-flask" style="margin-right: 6px;"></i> Enable Development Demo Mode
           </button>
         </div>
       </div>
@@ -212,20 +210,20 @@ window.renderInspirationPage = async function(state) {
     if (activeTitle) activeTitle.textContent = state.searchQuery || 'Design Inspiration';
   }
 
-  // 4. Handle Empty State
+  // 3. Empty State Handling
   if (!results || results.length === 0) {
     grid.style.display = 'block';
-    if (countText) countText.textContent = '0 inspirations found';
+    if (countText) countText.textContent = '0 relevant inspirations';
 
     grid.innerHTML = `
       <div class="no-results-box">
         <div class="no-results-icon"><i class="fa-solid fa-folder-open"></i></div>
         <h3>No inspiration found</h3>
-        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 6px;">We couldn't find matches for "${state.searchQuery}". Try searching one of these design topics:</p>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 6px;">We couldn't find matches for "${state.searchQuery}". Try searching one of these topics:</p>
 
         <div class="suggested-searches-list">
           <button class="suggestion-chip insp-retry-chip" data-query="footwear ecommerce">footwear ecommerce</button>
-          <button class="suggestion-chip insp-retry-chip" data-query="shoe ecommerce">shoe ecommerce</button>
+          <button class="suggestion-chip insp-retry-chip" data-query="shoe website">shoe website</button>
           <button class="suggestion-chip insp-retry-chip" data-query="saas dashboard">saas dashboard</button>
           <button class="suggestion-chip insp-retry-chip" data-query="fintech dashboard">fintech dashboard</button>
           <button class="suggestion-chip insp-retry-chip" data-query="luxury fashion">luxury fashion</button>
@@ -245,9 +243,9 @@ window.renderInspirationPage = async function(state) {
     return;
   }
 
-  // 5. Handle Success State
+  // 4. Success State Rendering (Phase 13: Exact count without manufacturing fake results)
   grid.style.display = 'grid';
-  if (countText) countText.textContent = `${results.length} inspiration result${results.length !== 1 ? 's' : ''}`;
+  if (countText) countText.textContent = `${results.length} relevant inspiration${results.length !== 1 ? 's' : ''}`;
 
   grid.innerHTML = results.map(item => {
     const isSaved = window.StorageManager ? window.StorageManager.isSaved(item.id) : false;
@@ -255,15 +253,20 @@ window.renderInspirationPage = async function(state) {
     const hasValidOriginal = isValidUrl(item.originalUrl);
     const hasValidSource = isValidUrl(item.sourceUrl);
 
-    const displayImgSrc = item.previewImage || item.thumbnailImage || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%231a1d21"/><text x="50%" y="50%" fill="%23777c85" font-size="16" font-family="sans-serif" text-anchor="middle" dy=".3em">No Preview Available</text></svg>';
+    // Phase 12: Professional "Preview unavailable" state if no legitimate image exists
+    const displayImgSrc = item.previewImage || item.thumbnailImage;
+    const imgHtml = displayImgSrc 
+      ? `<img class="card-thumb" src="${displayImgSrc}" alt="${item.title}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;600&quot; height=&quot;400&quot; viewBox=&quot;0 0 600 400&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%231a1d21&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; fill=&quot;%23777c85&quot; font-size=&quot;14&quot; font-family=&quot;sans-serif&quot; text-anchor=&quot;middle&quot; dy=&quot;.3em&quot;>Preview Unavailable</text></svg>';">`
+      : `<div class="card-thumb-placeholder" style="width:100%; height:180px; background:var(--bg-subtle); display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); border-radius:var(--radius-md);"><i class="fa-solid fa-eye-slash" style="font-size:24px; margin-bottom:8px;"></i><span style="font-size:12px; font-weight:600;">Preview Unavailable</span></div>`;
 
+    // Phase 17 & 18: Card Actions & Correct Link Behavior
     let actionButtonsHtml = '';
     if (hasValidOriginal && hasValidSource) {
       actionButtonsHtml = `
         <a href="${item.originalUrl}" target="_blank" rel="noopener" class="btn-original-link">
           Visit Website ↗
         </a>
-        <a href="${item.sourceUrl}" target="_blank" rel="noopener" class="btn-original-link" style="background: var(--bg-subtle); border: 1px solid var(--border-color);" title="View source page">
+        <a href="${item.sourceUrl}" target="_blank" rel="noopener" class="btn-original-link" style="background: var(--bg-subtle); border: 1px solid var(--border-color);" title="View source page on ${item.sourceName || 'Source'}">
           View Source ↗
         </a>
       `;
@@ -290,10 +293,10 @@ window.renderInspirationPage = async function(state) {
     return `
       <article class="design-card" data-id="${item.id}">
         <div class="card-thumb-wrapper">
-          <img class="card-thumb" src="${displayImgSrc}" alt="${item.title}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;600&quot; height=&quot;400&quot; viewBox=&quot;0 0 600 400&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%231a1d21&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; fill=&quot;%23777c85&quot; font-size=&quot;16&quot; font-family=&quot;sans-serif&quot; text-anchor=&quot;middle&quot; dy=&quot;.3em&quot;>Preview Unavailable</text></svg>';">
+          ${imgHtml}
           
           <span class="card-source-tag">
-            <span class="source-dot ${item.dotClass || 'dot-awwwards'}"></span> ${item.sourceName || item.source || 'Inspiration'}
+            <span class="source-dot ${item.dotClass || 'dot-awwwards'}"></span> ${item.sourceName || item.source || 'Web'}
             ${item.isDemo ? '<span class="demo-tag-pill">DEMO</span>' : ''}
           </span>
 
