@@ -1,71 +1,45 @@
 const https = require('https');
 const http = require('http');
 const url = require('url');
+const crypto = require('crypto');
+
+// Server-side in-memory search cache (1 hour TTL)
+const searchCache = new Map();
+const CACHE_TTL_MS = 60 * 60 * 1000;
 
 // -------------------------------------------------------------------------
-// 1. SOURCE RESOLVER (Maps Domain to Source Name)
+// 1. SOURCE RESOLVER (Domain -> Source Name)
 // -------------------------------------------------------------------------
 function resolveSourceFromUrl(targetUrl) {
-  if (!targetUrl) return { sourceName: 'Web', dotClass: 'dot-awwwards' };
-  const lower = targetUrl.toLowerCase();
+  if (!targetUrl) return { sourceName: 'Other', dotClass: 'dot-awwwards', domain: '' };
+  try {
+    const parsed = new URL(targetUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    if (hostname.includes('behance.net')) return { sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname };
+    if (hostname.includes('dribbble.com')) return { sourceName: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname };
+    if (hostname.includes('awwwards.com')) return { sourceName: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname };
+    if (hostname.includes('graphicriver.net')) return { sourceName: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname };
+    if (hostname.includes('envato.com') || hostname.includes('themeforest.net')) return { sourceName: 'Envato', dotClass: 'dot-envato', domain: hostname };
+    if (hostname.includes('siteinspire.com')) return { sourceName: 'SiteInspire', dotClass: 'dot-awwwards', domain: hostname };
+    if (hostname.includes('webflow.com')) return { sourceName: 'Webflow', dotClass: 'dot-awwwards', domain: hostname };
 
-  if (lower.includes('behance.net')) return { sourceName: 'Behance', dotClass: 'dot-behance' };
-  if (lower.includes('dribbble.com')) return { sourceName: 'Dribbble', dotClass: 'dot-dribbble' };
-  if (lower.includes('awwwards.com')) return { sourceName: 'Awwwards', dotClass: 'dot-awwwards' };
-  if (lower.includes('graphicriver.net')) return { sourceName: 'GraphicRiver', dotClass: 'dot-envato' };
-  if (lower.includes('envato.com') || lower.includes('themeforest.net')) return { sourceName: 'Envato', dotClass: 'dot-envato' };
-  if (lower.includes('siteinspire.com')) return { sourceName: 'SiteInspire', dotClass: 'dot-awwwards' };
-  if (lower.includes('webflow.com')) return { sourceName: 'Webflow', dotClass: 'dot-awwwards' };
-
-  return { sourceName: 'Web', dotClass: 'dot-awwwards' };
+    return { sourceName: 'Other', dotClass: 'dot-awwwards', domain: hostname };
+  } catch (e) {
+    return { sourceName: 'Other', dotClass: 'dot-awwwards', domain: '' };
+  }
 }
 
 // -------------------------------------------------------------------------
-// 2. QUERY EXPANSION ENGINE
+// 2. QUERY EXPANSION ENGINE (3-5 Intelligently Selected Variations Max)
 // -------------------------------------------------------------------------
 function expandQuery(query) {
   const q = (query || '').toLowerCase().trim();
-  const variations = [q];
-
-  if (q.includes('footwear') || q.includes('shoe') || q.includes('sneaker')) {
-    variations.push(
-      'footwear ecommerce website',
-      'shoe ecommerce design',
-      'sneaker storefront website',
-      'luxury footwear website',
-      'site:behance.net footwear ecommerce',
-      'site:dribbble.com footwear website',
-      'site:awwwards.com footwear',
-      'site:envato.com footwear ecommerce'
-    );
-  } else if (q.includes('saas') || q.includes('dashboard') || q.includes('software')) {
-    variations.push(
-      'saas dashboard interface',
-      'software app landing page',
-      'fintech dashboard ui',
-      'site:dribbble.com saas dashboard',
-      'site:behance.net saas web design',
-      'site:awwwards.com saas website'
-    );
-  } else if (q.includes('fashion') || q.includes('apparel') || q.includes('luxury')) {
-    variations.push(
-      'luxury fashion ecommerce website',
-      'apparel storefront design',
-      'site:awwwards.com fashion website',
-      'site:behance.net fashion ecommerce'
-    );
-  } else if (q.includes('agency') || q.includes('portfolio') || q.includes('creative')) {
-    variations.push(
-      'creative agency website design',
-      'designer portfolio showcase',
-      'site:awwwards.com agency portfolio',
-      'site:behance.net creative portfolio'
-    );
-  } else {
-    variations.push(`${q} website design`, `${q} ui ux showcase`, `site:behance.net ${q}`, `site:dribbble.com ${q}`);
-  }
-
-  return Array.from(new Set(variations));
+  const variations = [
+    `${q} website design inspiration`,
+    `${q} UI UX web design showcase`
+  ];
+  return variations;
 }
 
 // -------------------------------------------------------------------------
@@ -74,50 +48,66 @@ function expandQuery(query) {
 function calculateRelevanceScore(item, query) {
   if (!query || query.trim() === '') return 85;
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  let score = 50;
+  let score = 60;
 
   const fullText = [
     item.title,
     item.description,
     item.category,
-    item.industry,
-    item.style,
-    item.pageType,
     item.sourceName,
-    ...(item.tags || [])
+    item.domain
   ].filter(Boolean).join(' ').toLowerCase();
 
+  // Boost terms match
   terms.forEach(term => {
-    if (fullText.includes(term)) score += 15;
+    if (fullText.includes(term)) score += 12;
   });
 
-  if (fullText.includes(query.toLowerCase())) score += 20;
+  if (fullText.includes(query.toLowerCase())) score += 15;
 
-  const titleLower = (item.title || '').toLowerCase();
-  terms.forEach(term => {
-    if (titleLower.includes(term)) score += 10;
+  // Boost design relevance keywords
+  const designKeywords = ['website', 'ui', 'ux', 'storefront', 'landing page', 'ecommerce', 'dashboard', 'template', 'design', 'showcase'];
+  designKeywords.forEach(kw => {
+    if (fullText.includes(kw)) score += 5;
   });
+
+  // Deprioritize generic non-design articles
+  if (fullText.includes('wikipedia') || fullText.includes('news article') || fullText.includes('review')) {
+    score -= 20;
+  }
 
   return Math.min(99, Math.max(45, score));
 }
 
 // -------------------------------------------------------------------------
-// 4. DUPLICATE DETECTOR
+// 4. INFER CATEGORY
+// -------------------------------------------------------------------------
+function inferCategory(query, title, content) {
+  const text = `${query} ${title} ${content}`.toLowerCase();
+  if (text.includes('ecommerce') || text.includes('shoe') || text.includes('footwear') || text.includes('fashion') || text.includes('store')) {
+    return 'Ecommerce';
+  }
+  if (text.includes('saas') || text.includes('dashboard') || text.includes('analytics') || text.includes('app')) {
+    return 'SaaS';
+  }
+  if (text.includes('fintech') || text.includes('bank') || text.includes('crypto') || text.includes('finance')) {
+    return 'Fintech';
+  }
+  if (text.includes('agency') || text.includes('portfolio') || text.includes('creative')) {
+    return 'Agency';
+  }
+  return 'Web Design';
+}
+
+// -------------------------------------------------------------------------
+// 5. DUPLICATE DETECTOR
 // -------------------------------------------------------------------------
 function deduplicateResults(list) {
   const seen = new Set();
   const merged = [];
 
   list.forEach(item => {
-    let key = '';
-    if (item.originalUrl) {
-      key = item.originalUrl.toLowerCase().trim().replace(/\/$/, '');
-    } else if (item.sourceUrl) {
-      key = item.sourceUrl.toLowerCase().trim().replace(/\/$/, '');
-    } else {
-      key = (item.title || Math.random().toString()).toLowerCase().trim();
-    }
-
+    let key = item.url ? item.url.toLowerCase().trim().replace(/\/$/, '') : item.id;
     if (!seen.has(key)) {
       seen.add(key);
       merged.push(item);
@@ -128,80 +118,145 @@ function deduplicateResults(list) {
 }
 
 // -------------------------------------------------------------------------
-// 5. PUBLIC MULTI-SOURCE SEARCH ENGINE DISCOVERY
+// 6. TAVILY API HTTP CALLER
 // -------------------------------------------------------------------------
-const MASTER_DISCOVERY_INDEX = [
-  // FOOTWEAR & SHOE DISCOVERIES
-  { id: 'disc-01', title: 'KITH Footwear Editorial Storefront', url: 'https://www.awwwards.com/sites/kith-editorial-footwear', originalUrl: 'https://kith.com', previewImage: null, description: 'High-contrast luxury sneaker storefront featuring full-bleed product photography.', category: 'Ecommerce', industry: 'Footwear', style: 'Luxury', pageType: 'Homepage', contentType: 'website', tags: ['Footwear', 'Sneakers', 'Ecommerce', 'Luxury'] },
-  { id: 'disc-02', title: 'Nike Sneaker Release Hub & SNKRS', url: 'https://dribbble.com/shots/nike-sneaker-release-hub', originalUrl: 'https://www.nike.com', previewImage: null, description: 'Sleek urban footwear marketplace with interactive release countdowns.', category: 'Ecommerce', industry: 'Footwear', style: 'Modern', pageType: 'Product Listing', contentType: 'website', tags: ['Footwear', 'Sneakers', 'Ecommerce', 'Sports'] },
-  { id: 'disc-03', title: 'Allbirds Sustainable Wool Shoe Catalog', url: 'https://www.behance.net/gallery/allbirds-footwear-catalog', originalUrl: 'https://www.allbirds.com', previewImage: null, description: 'Clean minimalist footwear catalog emphasizing eco-friendly merino wool shoes.', category: 'Ecommerce', industry: 'Footwear', style: 'Minimal', pageType: 'Product Detail', contentType: 'website', tags: ['Footwear', 'Shoes', 'Minimal', 'Ecommerce'] },
-  { id: 'disc-04', title: 'Adidas Performance Athletics Store', url: 'https://www.behance.net/gallery/adidas-performance-athletics', originalUrl: 'https://www.adidas.com', previewImage: null, description: 'Performance sports footwear web shop with biomechanical cushioning graphics.', category: 'Ecommerce', industry: 'Footwear', style: 'Bold', pageType: 'Product Detail', contentType: 'website', tags: ['Footwear', 'Sports', 'Sneakers', 'Ecommerce'] },
-  { id: 'disc-05', title: 'Puma Retro Runner Heritage Showcase', url: 'https://dribbble.com/shots/puma-retro-runner-showcase', originalUrl: 'https://us.puma.com', previewImage: null, description: 'Dynamic vintage footwear storefront celebrating 80s sneaker silhouettes.', category: 'Ecommerce', industry: 'Footwear', style: 'Retro', pageType: 'Homepage', contentType: 'website', tags: ['Footwear', 'Retro', 'Sneakers', 'Ecommerce'] },
-  { id: 'disc-06', title: 'On Running CloudTec Footwear Portal', url: 'https://www.awwwards.com/sites/on-running-cloud', originalUrl: 'https://www.on.com', previewImage: null, description: 'Swiss engineered running footwear portal with interactive CloudTec soles animation.', category: 'Ecommerce', industry: 'Footwear', style: 'Swiss', pageType: 'Landing Page', contentType: 'website', tags: ['Footwear', 'Running', 'Minimal', 'Ecommerce'] },
-  { id: 'disc-07', title: 'Vans Customs Shoe Configurator', url: 'https://dribbble.com/shots/vans-customs-builder', originalUrl: 'https://www.vans.com/custom-shoes', previewImage: null, description: 'Interactive canvas shoe customizer UI allowing real-time pattern placement.', category: 'Ecommerce', industry: 'Footwear', style: 'Interactive', pageType: 'Customizer', contentType: 'ui', tags: ['Footwear', 'Customizer', 'Sneakers'] },
-  { id: 'disc-08', title: 'New Balance 990v5 Heritage Store', url: 'https://www.behance.net/gallery/new-balance-heritage-store', originalUrl: 'https://www.newbalance.com', previewImage: null, description: 'Boston footwear heritage design featuring iconic grey suede sneakers.', category: 'Ecommerce', industry: 'Footwear', style: 'Classic', pageType: 'Homepage', contentType: 'website', tags: ['Footwear', 'Sneakers', 'Classic'] },
-  { id: 'disc-09', title: 'Salomon Outdoor Trail Footwear Lab', url: 'https://www.awwwards.com/sites/salomon-outdoor-lab', originalUrl: 'https://www.salomon.com', previewImage: null, description: 'Technical trail footwear showcase with Gore-Tex waterproofing badges.', category: 'Ecommerce', industry: 'Footwear', style: 'Technical', pageType: 'Product Page', contentType: 'website', tags: ['Footwear', 'Outdoor', 'Trail'] },
-  { id: 'disc-10', title: 'GraphicRiver Footwear Ecommerce UI Kit', url: 'https://graphicriver.net/item/footwear-ecommerce-ui-kit/284910', originalUrl: null, previewImage: null, description: 'Comprehensive footwear eCommerce UI kit with 40+ mobile and desktop screens.', category: 'Ecommerce', industry: 'Footwear', style: 'Clean', pageType: 'UI Kit', contentType: 'ui', tags: ['GraphicRiver', 'Footwear', 'UI Kit'] },
+function callTavilyApi(apiKey, searchQuery) {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify({
+      api_key: apiKey,
+      query: searchQuery,
+      search_depth: 'basic',
+      include_images: true,
+      max_results: 20
+    });
 
-  // SAAS & DASHBOARDS
-  { id: 'disc-21', title: 'Linear Issue Tracking & Workflow Suite', url: 'https://www.awwwards.com/sites/linear-workflow', originalUrl: 'https://linear.app', previewImage: null, description: 'Dark-themed SaaS product design with keyboard shortcut legends and glowing purple gradients.', category: 'SaaS', industry: 'SaaS', style: 'Dark', pageType: 'Landing Page', contentType: 'website', tags: ['SaaS', 'Dark', 'Dashboard'] },
-  { id: 'disc-22', title: 'Vercel Cloud Deployment Console', url: 'https://dribbble.com/shots/vercel-cloud-console', originalUrl: 'https://vercel.com', previewImage: null, description: 'Understated developer cloud infrastructure dashboard featuring crisp monochrome typography.', category: 'SaaS', industry: 'SaaS', style: 'Minimal', pageType: 'Dashboard', contentType: 'dashboard', tags: ['SaaS', 'Dashboard', 'Minimal'] },
-  { id: 'disc-23', title: 'Stripe Developer Payments Platform', url: 'https://www.awwwards.com/sites/stripe-payments-platform', originalUrl: 'https://stripe.com', previewImage: null, description: 'Benchmark SaaS landing page with vibrant multi-layered mesh gradients.', category: 'Fintech', industry: 'Fintech', style: 'Modern', pageType: 'Landing Page', contentType: 'website', tags: ['Fintech', 'SaaS', 'Payments'] },
-  { id: 'disc-24', title: 'Figma Collaborative Design Workspace', url: 'https://dribbble.com/shots/figma-collaborative-workspace', originalUrl: 'https://www.figma.com', previewImage: null, description: 'Vibrant vector design interface with live multiplayer cursor pointers.', category: 'SaaS', industry: 'SaaS', style: 'Modern', pageType: 'Workspace', contentType: 'ui', tags: ['SaaS', 'Design Tool', 'Workspace'] },
-  { id: 'disc-25', title: 'Raycast Desktop Intelligence Launcher', url: 'https://www.behance.net/gallery/raycast-launcher', originalUrl: 'https://www.raycast.com', previewImage: null, description: 'Ultra-fast command palette application landing page with dark glassmorphism.', category: 'SaaS', industry: 'SaaS', style: 'Dark', pageType: 'Landing Page', contentType: 'website', tags: ['SaaS', 'Dark', 'Glassmorphism'] },
-  { id: 'disc-26', title: 'Revolut Business Financial Telemetry', url: 'https://dribbble.com/shots/revolut-business-dashboard', originalUrl: 'https://www.revolut.com/business', previewImage: null, description: 'Modern fintech telemetry suite featuring real-time cashflow sparklines.', category: 'Fintech', industry: 'Fintech', style: 'Modern', pageType: 'Dashboard', contentType: 'dashboard', tags: ['Fintech', 'Dashboard', 'Banking'] },
-
-  // FASHION & LUXURY
-  { id: 'disc-31', title: 'Balenciaga High Fashion Experience', url: 'https://www.awwwards.com/sites/monolith-fashion', originalUrl: 'https://www.balenciaga.com', previewImage: null, description: 'Avant-garde editorial fashion destination featuring interactive runway video backgrounds.', category: 'Ecommerce', industry: 'Fashion', style: 'Luxury', pageType: 'Homepage', contentType: 'website', tags: ['Fashion', 'Luxury', 'Editorial'] },
-  { id: 'disc-32', title: 'Saint Laurent Minimalist Boutique', url: 'https://www.behance.net/gallery/saint-laurent-boutique', originalUrl: 'https://www.ysl.com', previewImage: null, description: 'Monochrome luxury leather goods and apparel catalog with stark black typography.', category: 'Ecommerce', industry: 'Fashion', style: 'Minimal', pageType: 'Product Listing', contentType: 'website', tags: ['Fashion', 'Luxury', 'Minimal'] },
-  { id: 'disc-33', title: 'Gucci Botanical Capsule Lookbook', url: 'https://www.awwwards.com/sites/gucci-botanical', originalUrl: 'https://www.gucci.com', previewImage: null, description: 'Maximalist luxury fashion experience with animated flora and golden accents.', category: 'Ecommerce', industry: 'Fashion', style: 'Luxury', pageType: 'Campaign Page', contentType: 'website', tags: ['Fashion', 'Luxury', 'Maximalist'] },
-
-  // CREATIVE AGENCIES & PORTFOLIOS
-  { id: 'disc-41', title: 'Locomotive Creative Agency Portfolio', url: 'https://www.awwwards.com/sites/locomotive-agency', originalUrl: 'https://locomotive.ca', previewImage: null, description: 'Award-winning Montreal digital studio portfolio with kinetic typography and WebGL distortion.', category: 'Agency', industry: 'Creative', style: 'Interactive', pageType: 'Portfolio', contentType: 'website', tags: ['Agency', 'Portfolio', 'Creative', 'WebGL'] },
-  { id: 'disc-42', title: 'Basic® Culture & Craft Agency', url: 'https://www.behance.net/gallery/basic-agency-portfolio', originalUrl: 'https://www.basicagency.com', previewImage: null, description: 'San Diego digital design agency showcasing brand identity reels and editorial case studies.', category: 'Agency', industry: 'Creative', style: 'Bold', pageType: 'Portfolio', contentType: 'website', tags: ['Agency', 'Branding', 'Case Study'] }
-];
-
-function executeWebSearchAggregation(query) {
-  const queryLower = (query || '').toLowerCase().trim();
-  const searchTerms = queryLower.split(/\s+/).filter(Boolean);
-
-  let matches = MASTER_DISCOVERY_INDEX.filter(item => {
-    const fullText = `${item.title} ${item.description} ${item.category} ${item.industry} ${item.style} ${(item.tags || []).join(' ')}`.toLowerCase();
-    return searchTerms.some(term => fullText.includes(term));
-  });
-
-  if (matches.length === 0) {
-    matches = MASTER_DISCOVERY_INDEX;
-  }
-
-  return matches.map(raw => {
-    const sourceInfo = resolveSourceFromUrl(raw.url);
-    const item = {
-      id: raw.id,
-      title: raw.title,
-      sourceName: sourceInfo.sourceName,
-      dotClass: sourceInfo.dotClass,
-      sourceUrl: raw.url,
-      originalUrl: raw.originalUrl,
-      previewImage: raw.previewImage,
-      thumbnailImage: raw.previewImage,
-      description: raw.description,
-      category: raw.category,
-      industry: raw.industry,
-      style: raw.style,
-      pageType: raw.pageType,
-      contentType: raw.contentType || 'website',
-      tags: raw.tags || [],
-      isDemo: false
+    const reqOptions = {
+      hostname: 'api.tavily.com',
+      port: 443,
+      path: '/search',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      timeout: 10000
     };
 
-    item.relevanceScore = calculateRelevanceScore(item, query);
-    return item;
+    const req = https.request(reqOptions, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const data = JSON.parse(body);
+            resolve(data);
+          } catch (e) {
+            reject(new Error('Invalid JSON from Tavily API'));
+          }
+        } else {
+          reject(new Error(`Tavily API HTTP ${res.statusCode}: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Tavily API request timed out'));
+    });
+
+    req.write(postData);
+    req.end();
   });
 }
 
 // -------------------------------------------------------------------------
-// 6. SERVERLESS ROUTE HANDLER
+// 7. CORE SEARCH ENGINE EXECUTION WITH TAVILY
+// -------------------------------------------------------------------------
+async function executeTavilySearch(apiKey, query) {
+  const normalizedQuery = (query || '').toLowerCase().trim();
+  
+  // Check in-memory cache
+  const cached = searchCache.get(normalizedQuery);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+    console.log(`[Tavily Search] Cache hit for query: "${normalizedQuery}"`);
+    return cached.results;
+  }
+
+  const expandedQueries = expandQuery(query);
+  console.log(`[Tavily Search] Executing ${expandedQueries.length} search queries for: "${query}"`);
+
+  // Run maximum 2 parallel Tavily queries to save free tier credits
+  const responses = await Promise.allSettled(
+    expandedQueries.map(q => callTavilyApi(apiKey, q))
+  );
+
+  let rawResults = [];
+  let returnedImages = [];
+
+  responses.forEach(res => {
+    if (res.status === 'fulfilled' && res.value) {
+      if (Array.isArray(res.value.results)) {
+        rawResults.push(...res.value.results);
+      }
+      if (Array.isArray(res.value.images)) {
+        returnedImages.push(...res.value.images);
+      }
+    } else if (res.status === 'rejected') {
+      console.warn('[Tavily Search] Query execution failed:', res.reason ? res.reason.message : res.reason);
+    }
+  });
+
+  let imgIdx = 0;
+  const normalizedList = rawResults.map(item => {
+    const sourceInfo = resolveSourceFromUrl(item.url);
+    const itemUrl = item.url || '';
+    
+    // Assign image if Tavily returned images or result image
+    let thumb = item.image || item.thumbnail || null;
+    if (!thumb && returnedImages.length > 0 && imgIdx < returnedImages.length) {
+      thumb = returnedImages[imgIdx++];
+    }
+
+    const category = inferCategory(query, item.title, item.content);
+    
+    const normalizedItem = {
+      id: 'tavily-' + crypto.createHash('md5').update(itemUrl).digest('hex').substring(0, 12),
+      title: item.title || 'Design Inspiration',
+      url: itemUrl,
+      originalUrl: itemUrl,
+      sourceUrl: itemUrl,
+      source: sourceInfo.sourceName,
+      sourceName: sourceInfo.sourceName,
+      dotClass: sourceInfo.dotClass,
+      domain: sourceInfo.domain,
+      description: item.content || item.snippet || '',
+      thumbnail: thumb,
+      previewImage: thumb,
+      thumbnailImage: thumb,
+      category: category,
+      pageType: 'Website',
+      isDemo: false
+    };
+
+    normalizedItem.relevanceScore = calculateRelevanceScore(normalizedItem, query);
+    return normalizedItem;
+  });
+
+  const deduplicated = deduplicateResults(normalizedList);
+  deduplicated.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+  // Store in cache
+  searchCache.set(normalizedQuery, {
+    timestamp: Date.now(),
+    results: deduplicated
+  });
+
+  return deduplicated;
+}
+
+// -------------------------------------------------------------------------
+// 8. SERVERLESS ROUTE HANDLER
 // -------------------------------------------------------------------------
 module.exports = async function handler(req, res) {
   function sendJson(statusCode, data) {
@@ -215,77 +270,80 @@ module.exports = async function handler(req, res) {
   try {
     let query = '';
     let filters = {};
-    let limit = 36;
-    let useDemo = false;
+    let limit = 40;
 
     if (req.method === 'GET') {
       const parsedUrl = url.parse(req.url, true);
       query = parsedUrl.query.query || (req.query && req.query.query) || '';
-      limit = parseInt(parsedUrl.query.limit || req.query?.limit || '36', 10);
-      useDemo = parsedUrl.query.useDemo === 'true' || (req.query && req.query.useDemo === 'true');
+      limit = parseInt(parsedUrl.query.limit || req.query?.limit || '40', 10);
     } else {
-      let body = req.body || {};
-      if (typeof body === 'string') {
+      let body = req.body;
+      if (!body) {
+        let raw = '';
+        try {
+          for await (const chunk of req) {
+            raw += chunk;
+          }
+          body = JSON.parse(raw || '{}');
+        } catch (e) {
+          body = {};
+        }
+      } else if (typeof body === 'string') {
         try { body = JSON.parse(body); } catch (e) { body = {}; }
       }
-      query = body.query || '';
+      body = body || {};
+
+      query = body.query || (req.query && req.query.query) || '';
       filters = body.filters || {};
-      limit = parseInt(body.limit || '36', 10);
-      useDemo = body.useDemo;
+      limit = parseInt(body.limit || '40', 10);
     }
 
-    // Demo Mode switch check
-    const isDemoMode = process.env.USE_DEMO_INSPIRATION === 'true' || useDemo === true;
-    if (isDemoMode) {
+    const apiKey = process.env.TAVILY_API_KEY ? process.env.TAVILY_API_KEY.trim() : '';
+
+    // Check missing API Key
+    if (!apiKey) {
       return sendJson(200, {
-        status: 'demo_mode',
+        status: 'unconfigured',
         isLiveConfigured: false,
-        useDemo: true,
-        message: 'Demo mode active via USE_DEMO_INSPIRATION=true switch',
-        query,
-        filters,
+        error: 'Live search is not configured.',
+        message: 'TAVILY_API_KEY environment variable is not configured in server environment.',
         results: []
       });
     }
 
-    // Provider Status Tracker
-    const providersStatus = [
-      { name: 'WebSearch', status: 'success', description: 'Discovered public web design showcases' },
-      { name: 'Behance', status: 'discovered', description: 'Discovered via web search aggregation' },
-      { name: 'Dribbble', status: 'discovered', description: 'Discovered via web search aggregation' },
-      { name: 'Awwwards', status: 'discovered', description: 'Discovered via web search aggregation' },
-      { name: 'Envato', status: process.env.ENVATO_API_TOKEN ? 'success' : 'optional_unconfigured', description: process.env.ENVATO_API_TOKEN ? 'Live official API active' : 'Optional API token unconfigured' },
-      { name: 'GraphicRiver', status: 'supported_through_envato', description: 'Ecosystem supported via Envato' }
-    ];
+    // Run Tavily Search
+    const allResults = await executeTavilySearch(apiKey, query);
 
-    // 1. Run Search Provider & Source Discovery
-    let results = executeWebSearchAggregation(query);
+    // Apply Filter by Source if specified in request
+    let filteredResults = allResults;
+    if (filters.source && filters.source !== 'All Sources') {
+      const srcFilter = filters.source.toLowerCase();
+      filteredResults = filteredResults.filter(item => {
+        const itemSrc = (item.sourceName || item.source || '').toLowerCase();
+        if (srcFilter === 'other') {
+          return !['behance', 'dribbble', 'awwwards', 'envato', 'graphicriver'].includes(itemSrc);
+        }
+        return itemSrc === srcFilter;
+      });
+    }
 
-    // 2. Deduplicate
-    results = deduplicateResults(results);
-
-    // 3. Relevance Ranking
-    results.sort((a, b) => b.relevanceScore - a.relevanceScore);
-
-    // 4. Slice to requested limit (e.g. 36)
-    const finalResults = results.slice(0, limit);
+    const finalResults = filteredResults.slice(0, limit);
 
     return sendJson(200, {
       status: 'success',
       isLiveConfigured: true,
       query: query,
       normalizedQuery: (query || '').toLowerCase().trim(),
-      intent: { originalQuery: query, expandedQueries: expandQuery(query) },
-      providers: providersStatus,
-      total: results.length,
+      total: filteredResults.length,
       returnedCount: finalResults.length,
       results: finalResults
     });
 
   } catch (err) {
+    console.error('[DesignPilot Search Handler Error]:', err);
     return sendJson(200, {
       status: 'error',
-      error: 'Inspiration search unavailable',
+      error: 'Search temporarily unavailable.',
       message: err.message,
       results: []
     });

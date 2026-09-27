@@ -226,7 +226,7 @@
     }
   }
 
-  // Live Server Search Provider (Phase 3 & 21: Strict No Silent Demo Fallback)
+  // Live Server Search Provider (Tavily Web Search Integration)
   class LiveSearchProvider extends InspirationProvider {
     constructor() {
       super('LiveSearchProvider');
@@ -237,7 +237,7 @@
         const res = await fetch('/api/inspiration/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, filters, limit: 36 })
+          body: JSON.stringify({ query, filters, limit: 40 })
         });
 
         if (!res.ok) {
@@ -247,40 +247,27 @@
         const data = await res.json();
         console.log('[DesignPilot Provider] Search response:', data);
 
-        // Explicit Demo Mode
-        if (data.status === 'demo_mode') {
-          if (window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
-            const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
-            return demoProv.search(query, filters);
-          }
-        }
-
-        // Strict Unconfigured Error handling (Phase 21: No Silent Fallback)
         if (data.status === 'unconfigured') {
           return {
             items: [],
-            error: 'Live search unavailable',
-            message: data.message || 'ENVATO_API_TOKEN environment variable is not configured on server.',
-            isLiveConfigured: false,
-            searchMeta: { provider: 'LiveSearchProvider' },
-            providersStatus: data.providers || []
+            error: data.error || 'Live search is not configured.',
+            message: data.message || 'TAVILY_API_KEY environment variable is not configured in server environment.',
+            isLiveConfigured: false
           };
         }
 
         if (data.status === 'error') {
           return {
             items: [],
-            error: 'Inspiration search unavailable',
-            message: data.message,
-            isLiveConfigured: true,
-            searchMeta: { provider: 'LiveSearchProvider' },
-            providersStatus: data.providers || []
+            error: data.error || 'Search temporarily unavailable.',
+            message: data.message || 'Failed to fetch search results.',
+            isLiveConfigured: true
           };
         }
 
         let items = data.results || [];
 
-        // Apply Local Category Filtering if requested
+        // Apply Category Filtering
         if (filters.category && filters.category !== 'All') {
           if (filters.category === 'Saved') {
             const savedIds = window.StorageManager ? window.StorageManager.getSavedIds() : [];
@@ -291,32 +278,39 @@
               const tagMatch = item.tags && item.tags.some(t => t.toLowerCase().includes(filters.category.toLowerCase()));
               const styleMatch = item.style && item.style.toLowerCase().includes(filters.category.toLowerCase());
               const typeMatch = item.pageType && item.pageType.toLowerCase().includes(filters.category.toLowerCase());
-              return catMatch || tagMatch || styleMatch || typeMatch;
+              const descMatch = item.description && item.description.toLowerCase().includes(filters.category.toLowerCase());
+              const titleMatch = item.title && item.title.toLowerCase().includes(filters.category.toLowerCase());
+              return catMatch || tagMatch || styleMatch || typeMatch || descMatch || titleMatch;
             });
           }
         }
 
-        items.forEach(item => {
-          if (!item.relevanceScore) item.relevanceScore = calculateRelevance(item, query);
-        });
-        items.sort((a, b) => b.relevanceScore - a.relevanceScore);
+        // Apply Source Filtering
+        if (filters.source && filters.source !== 'All Sources') {
+          const srcFilter = filters.source.toLowerCase();
+          items = items.filter(item => {
+            const itemSrc = (item.sourceName || item.source || '').toLowerCase();
+            if (srcFilter === 'other') {
+              return !['behance', 'dribbble', 'awwwards', 'envato', 'graphicriver'].includes(itemSrc);
+            }
+            return itemSrc === srcFilter;
+          });
+        }
 
         return {
           items: items,
           isLiveConfigured: true,
           searchMeta: {
-            provider: 'Multi-Source Engine',
-            normalizedQuery: query,
-            providersUsed: data.providers || []
+            provider: 'Tavily Web Search Engine',
+            normalizedQuery: query
           }
         };
       } catch (err) {
         console.error('[DesignPilot Provider] Search endpoint error:', err);
         return {
           items: [],
-          error: 'Inspiration search unavailable',
-          message: err.message,
-          searchMeta: { provider: 'LiveSearchProvider' }
+          error: 'Search temporarily unavailable.',
+          message: err.message
         };
       }
     }

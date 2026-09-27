@@ -259,27 +259,13 @@ window.renderInspirationPage = async function(state) {
       ? `<img class="card-thumb" src="${displayImgSrc}" alt="${item.title}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;600&quot; height=&quot;400&quot; viewBox=&quot;0 0 600 400&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%231a1d21&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; fill=&quot;%23777c85&quot; font-size=&quot;14&quot; font-family=&quot;sans-serif&quot; text-anchor=&quot;middle&quot; dy=&quot;.3em&quot;>Preview Unavailable</text></svg>';">`
       : `<div class="card-thumb-placeholder" style="width:100%; height:180px; background:var(--bg-subtle); display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); border-radius:var(--radius-md);"><i class="fa-solid fa-eye-slash" style="font-size:24px; margin-bottom:8px;"></i><span style="font-size:12px; font-weight:600;">Preview Unavailable</span></div>`;
 
-    // Phase 17 & 18: Card Actions & Correct Link Behavior
+    // Card Actions & Exact Link Behavior
+    const targetLink = item.originalUrl || item.url || item.sourceUrl;
     let actionButtonsHtml = '';
-    if (hasValidOriginal && hasValidSource) {
+    if (isValidUrl(targetLink)) {
       actionButtonsHtml = `
-        <a href="${item.originalUrl}" target="_blank" rel="noopener" class="btn-original-link">
-          Visit Website ↗
-        </a>
-        <a href="${item.sourceUrl}" target="_blank" rel="noopener" class="btn-original-link" style="background: var(--bg-subtle); border: 1px solid var(--border-color);" title="View source page on ${item.sourceName || 'Source'}">
-          View Source ↗
-        </a>
-      `;
-    } else if (hasValidOriginal) {
-      actionButtonsHtml = `
-        <a href="${item.originalUrl}" target="_blank" rel="noopener" class="btn-original-link">
-          Visit Website ↗
-        </a>
-      `;
-    } else if (hasValidSource) {
-      actionButtonsHtml = `
-        <a href="${item.sourceUrl}" target="_blank" rel="noopener" class="btn-original-link">
-          View Source ↗
+        <a href="${targetLink}" target="_blank" rel="noopener" class="btn-original-link">
+          View Original ↗
         </a>
       `;
     } else {
