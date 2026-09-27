@@ -289,11 +289,18 @@
         if (filters.source && filters.source !== 'All Sources') {
           const srcFilter = filters.source.toLowerCase();
           items = items.filter(item => {
+            const itemCategory = (item.sourceCategory || item.sourceName || item.source || '').toLowerCase();
             const itemSrc = (item.sourceName || item.source || '').toLowerCase();
-            if (srcFilter === 'other') {
-              return !['behance', 'dribbble', 'awwwards', 'envato', 'graphicriver'].includes(itemSrc);
-            }
-            return itemSrc === srcFilter;
+
+            if (srcFilter === 'envato') return itemCategory === 'envato' || itemSrc.includes('envato');
+            if (srcFilter === 'awwwards') return itemCategory === 'awwwards' || itemSrc.includes('awwwards');
+            if (srcFilter === 'dribbble') return itemCategory === 'dribbble' || itemSrc.includes('dribbble');
+            if (srcFilter === 'behance') return itemCategory === 'behance' || itemSrc.includes('behance');
+            if (srcFilter === 'graphicriver') return itemCategory === 'graphicriver' || itemSrc.includes('graphicriver');
+            if (srcFilter === 'other inspiration') return itemCategory === 'other inspiration';
+            if (srcFilter === 'live websites') return itemCategory === 'live websites';
+
+            return itemSrc.includes(srcFilter);
           });
         }
 

@@ -1,5 +1,4 @@
 const https = require('https');
-const http = require('http');
 const url = require('url');
 const crypto = require('crypto');
 
@@ -8,75 +7,132 @@ const searchCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
 // -------------------------------------------------------------------------
-// 1. SOURCE RESOLVER (Domain -> Source Name)
+// 1. SOURCE CLASSIFICATION & PRIORITY RESOLVER
 // -------------------------------------------------------------------------
-function resolveSourceFromUrl(targetUrl) {
-  if (!targetUrl) return { sourceName: 'Other', dotClass: 'dot-awwwards', domain: '' };
+function classifySource(targetUrl, title = '', content = '') {
+  if (!targetUrl) return { sourceName: 'Other Inspiration', sourceCategory: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
+  
   try {
     const parsed = new URL(targetUrl);
     const hostname = parsed.hostname.toLowerCase();
-    
-    if (hostname.includes('behance.net')) return { sourceName: 'Behance', dotClass: 'dot-behance', domain: hostname };
-    if (hostname.includes('dribbble.com')) return { sourceName: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname };
-    if (hostname.includes('awwwards.com')) return { sourceName: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname };
-    if (hostname.includes('graphicriver.net')) return { sourceName: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname };
-    if (hostname.includes('envato.com') || hostname.includes('themeforest.net')) return { sourceName: 'Envato', dotClass: 'dot-envato', domain: hostname };
-    if (hostname.includes('siteinspire.com')) return { sourceName: 'SiteInspire', dotClass: 'dot-awwwards', domain: hostname };
-    if (hostname.includes('webflow.com')) return { sourceName: 'Webflow', dotClass: 'dot-awwwards', domain: hostname };
+    const pathname = parsed.pathname.toLowerCase();
+    const fullText = `${title} ${content} ${pathname}`.toLowerCase();
 
-    return { sourceName: 'Other', dotClass: 'dot-awwwards', domain: hostname };
+    // 1. Envato / ThemeForest
+    if (hostname.includes('themeforest.net') || hostname.includes('elements.envato.com') || hostname.includes('envato.com') || hostname.includes('codecanyon.net')) {
+      return { sourceName: 'Envato', sourceCategory: 'Envato', dotClass: 'dot-envato', domain: hostname, priorityWeight: 100 };
+    }
+
+    // 2. GraphicRiver
+    if (hostname.includes('graphicriver.net')) {
+      return { sourceName: 'GraphicRiver', sourceCategory: 'GraphicRiver', dotClass: 'dot-envato', domain: hostname, priorityWeight: 85 };
+    }
+
+    // 3. Awwwards
+    if (hostname.includes('awwwards.com')) {
+      return { sourceName: 'Awwwards', sourceCategory: 'Awwwards', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 95 };
+    }
+
+    // 4. Dribbble
+    if (hostname.includes('dribbble.com')) {
+      return { sourceName: 'Dribbble', sourceCategory: 'Dribbble', dotClass: 'dot-dribbble', domain: hostname, priorityWeight: 90 };
+    }
+
+    // 5. Behance
+    if (hostname.includes('behance.net')) {
+      return { sourceName: 'Behance', sourceCategory: 'Behance', dotClass: 'dot-behance', domain: hostname, priorityWeight: 90 };
+    }
+
+    // 6. Reputable Inspiration Sites
+    const knownInspirationDomains = [
+      'siteinspire.com', 'lapa.ninja', 'saasui.design', 'saasinterface.com', 'nicelydone.club',
+      'saasframe.io', 'landingfolio.com', 'pageflows.com', 'godly.website', 'onepagelove.com',
+      'dark.design', 'mobbin.com', 'land-book.com', 'webflow.com', 'figma.com'
+    ];
+    if (knownInspirationDomains.some(d => hostname.includes(d))) {
+      return { sourceName: 'Other Inspiration', sourceCategory: 'Other Inspiration', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 75 };
+    }
+
+    // 7. Check if Article/Collection vs Live Website
+    const articleKeywords = ['top 10', 'top 15', 'top 20', 'top 25', 'top 30', 'top 50', 'best ', 'examples for', 'ideas for', 'how to', 'blog', 'article', 'guide', 'listicle'];
+    const isArticle = articleKeywords.some(kw => fullText.includes(kw)) || pathname.includes('/blog/') || pathname.includes('/articles/');
+
+    if (isArticle) {
+      return { sourceName: 'Article/Collection', sourceCategory: 'Article/Collection', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 50 };
+    }
+
+    // 8. Live Product / E-commerce / Company Website
+    return { sourceName: 'Live Website', sourceCategory: 'Live Websites', dotClass: 'dot-awwwards', domain: hostname, priorityWeight: 70 };
+
   } catch (e) {
-    return { sourceName: 'Other', dotClass: 'dot-awwwards', domain: '' };
+    return { sourceName: 'Other Inspiration', sourceCategory: 'Other Inspiration', dotClass: 'dot-awwwards', domain: '', priorityWeight: 60 };
   }
 }
 
 // -------------------------------------------------------------------------
-// 2. QUERY EXPANSION ENGINE (3-5 Intelligently Selected Variations Max)
+// 2. TARGETED MULTI-QUERY EXPANSION ENGINE
 // -------------------------------------------------------------------------
 function expandQuery(query) {
   const q = (query || '').toLowerCase().trim();
-  const variations = [
-    `${q} website design inspiration`,
-    `${q} UI UX web design showcase`
+  return [
+    `site:themeforest.net ${q}`,
+    `site:elements.envato.com ${q}`,
+    `site:graphicriver.net ${q}`,
+    `site:awwwards.com ${q}`,
+    `site:dribbble.com ${q}`,
+    `site:behance.net ${q}`,
+    `"${q}" website design UI inspiration`,
+    `"${q}" storefront UI UX showcase`
   ];
-  return variations;
 }
 
 // -------------------------------------------------------------------------
 // 3. RELEVANCE RANKING ENGINE
 // -------------------------------------------------------------------------
-function calculateRelevanceScore(item, query) {
+function calculateRelevanceScore(item, query, sourceInfo) {
   if (!query || query.trim() === '') return 85;
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  let score = 60;
+  const qLower = query.toLowerCase().trim();
+  const terms = qLower.split(/\s+/).filter(Boolean);
+  
+  let score = 0;
 
-  const fullText = [
-    item.title,
-    item.description,
-    item.category,
-    item.sourceName,
-    item.domain
-  ].filter(Boolean).join(' ').toLowerCase();
+  // 1. Exact query match (+40 max)
+  const titleLower = (item.title || '').toLowerCase();
+  const descLower = (item.description || '').toLowerCase();
+  const fullText = `${titleLower} ${descLower} ${item.url}`.toLowerCase();
 
-  // Boost terms match
-  terms.forEach(term => {
-    if (fullText.includes(term)) score += 12;
-  });
-
-  if (fullText.includes(query.toLowerCase())) score += 15;
-
-  // Boost design relevance keywords
-  const designKeywords = ['website', 'ui', 'ux', 'storefront', 'landing page', 'ecommerce', 'dashboard', 'template', 'design', 'showcase'];
-  designKeywords.forEach(kw => {
-    if (fullText.includes(kw)) score += 5;
-  });
-
-  // Deprioritize generic non-design articles
-  if (fullText.includes('wikipedia') || fullText.includes('news article') || fullText.includes('review')) {
-    score -= 20;
+  if (fullText.includes(qLower)) {
+    score += 40;
+  } else {
+    let matchedTerms = 0;
+    terms.forEach(t => { if (fullText.includes(t)) matchedTerms++; });
+    score += Math.round((matchedTerms / terms.length) * 35);
   }
 
-  return Math.min(99, Math.max(45, score));
+  // 2. Source priority (+25 max)
+  const sourceWeight = sourceInfo.priorityWeight || 70;
+  score += Math.round(((sourceWeight - 40) / 60) * 25);
+
+  // 3. Design/Inspiration relevance (+20 max)
+  const designKw = ['ui', 'ux', 'template', 'design', 'storefront', 'dashboard', 'showcase', 'landing page', 'ecommerce', 'app', 'website', 'shot', 'project'];
+  let designCount = 0;
+  designKw.forEach(kw => { if (fullText.includes(kw)) designCount++; });
+  score += Math.min(20, designCount * 5);
+
+  // 4. Title relevance (+10 max)
+  let titleMatch = 0;
+  terms.forEach(t => { if (titleLower.includes(t)) titleMatch++; });
+  if (titleMatch > 0) {
+    score += Math.min(10, Math.round((titleMatch / terms.length) * 10));
+  }
+
+  // 5. Specific Useful Result URL (+5 max)
+  const specificPath = ['/item/', '/shots/', '/gallery/', '/sites/', '/templates/', '/product/', '/p/'];
+  if (specificPath.some(p => (item.url || '').toLowerCase().includes(p))) {
+    score += 5;
+  }
+
+  return Math.min(98, Math.max(45, score));
 }
 
 // -------------------------------------------------------------------------
@@ -100,16 +156,23 @@ function inferCategory(query, title, content) {
 }
 
 // -------------------------------------------------------------------------
-// 5. DUPLICATE DETECTOR
+// 5. DEDUPLICATION ENGINE
 // -------------------------------------------------------------------------
 function deduplicateResults(list) {
   const seen = new Set();
   const merged = [];
 
   list.forEach(item => {
-    let key = item.url ? item.url.toLowerCase().trim().replace(/\/$/, '') : item.id;
-    if (!seen.has(key)) {
-      seen.add(key);
+    let cleanUrl = (item.url || '').toLowerCase().trim();
+    try {
+      const u = new URL(cleanUrl);
+      cleanUrl = `${u.origin}${u.pathname}`.replace(/\/$/, '');
+    } catch (e) {
+      cleanUrl = cleanUrl.replace(/\/$/, '');
+    }
+
+    if (cleanUrl && !seen.has(cleanUrl)) {
+      seen.add(cleanUrl);
       merged.push(item);
     }
   });
@@ -127,7 +190,7 @@ function callTavilyApi(apiKey, searchQuery) {
       query: searchQuery,
       search_depth: 'basic',
       include_images: true,
-      max_results: 20
+      max_results: 15
     });
 
     const reqOptions = {
@@ -184,9 +247,9 @@ async function executeTavilySearch(apiKey, query) {
   }
 
   const expandedQueries = expandQuery(query);
-  console.log(`[Tavily Search] Executing ${expandedQueries.length} search queries for: "${query}"`);
+  console.log(`[Tavily Search] Executing ${expandedQueries.length} targeted search queries for: "${query}"`);
 
-  // Run maximum 2 parallel Tavily queries to save free tier credits
+  // Run targeted queries in parallel
   const responses = await Promise.allSettled(
     expandedQueries.map(q => callTavilyApi(apiKey, q))
   );
@@ -209,8 +272,8 @@ async function executeTavilySearch(apiKey, query) {
 
   let imgIdx = 0;
   const normalizedList = rawResults.map(item => {
-    const sourceInfo = resolveSourceFromUrl(item.url);
     const itemUrl = item.url || '';
+    const sourceInfo = classifySource(itemUrl, item.title, item.content);
     
     // Assign image if Tavily returned images or result image
     let thumb = item.image || item.thumbnail || null;
@@ -228,6 +291,7 @@ async function executeTavilySearch(apiKey, query) {
       sourceUrl: itemUrl,
       source: sourceInfo.sourceName,
       sourceName: sourceInfo.sourceName,
+      sourceCategory: sourceInfo.sourceCategory,
       dotClass: sourceInfo.dotClass,
       domain: sourceInfo.domain,
       description: item.content || item.snippet || '',
@@ -239,11 +303,13 @@ async function executeTavilySearch(apiKey, query) {
       isDemo: false
     };
 
-    normalizedItem.relevanceScore = calculateRelevanceScore(normalizedItem, query);
+    normalizedItem.relevanceScore = calculateRelevanceScore(normalizedItem, query, sourceInfo);
     return normalizedItem;
   });
 
   const deduplicated = deduplicateResults(normalizedList);
+  
+  // Sort by calculated relevance score descending
   deduplicated.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
   // Store in cache
@@ -311,7 +377,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Run Tavily Search
+    // Run Targeted Multi-Query Tavily Search
     const allResults = await executeTavilySearch(apiKey, query);
 
     // Apply Filter by Source if specified in request
@@ -319,11 +385,18 @@ module.exports = async function handler(req, res) {
     if (filters.source && filters.source !== 'All Sources') {
       const srcFilter = filters.source.toLowerCase();
       filteredResults = filteredResults.filter(item => {
+        const itemCategory = (item.sourceCategory || item.sourceName || item.source || '').toLowerCase();
         const itemSrc = (item.sourceName || item.source || '').toLowerCase();
-        if (srcFilter === 'other') {
-          return !['behance', 'dribbble', 'awwwards', 'envato', 'graphicriver'].includes(itemSrc);
-        }
-        return itemSrc === srcFilter;
+        
+        if (srcFilter === 'envato') return itemCategory === 'envato';
+        if (srcFilter === 'awwwards') return itemCategory === 'awwwards';
+        if (srcFilter === 'dribbble') return itemCategory === 'dribbble';
+        if (srcFilter === 'behance') return itemCategory === 'behance';
+        if (srcFilter === 'graphicriver') return itemCategory === 'graphicriver';
+        if (srcFilter === 'other inspiration') return itemCategory === 'other inspiration';
+        if (srcFilter === 'live websites') return itemCategory === 'live websites';
+
+        return itemSrc.includes(srcFilter);
       });
     }
 

@@ -264,7 +264,7 @@ window.renderInspirationPage = async function(state) {
     let actionButtonsHtml = '';
     if (isValidUrl(targetLink)) {
       actionButtonsHtml = `
-        <a href="${targetLink}" target="_blank" rel="noopener" class="btn-original-link">
+        <a href="${targetLink}" target="_blank" rel="noopener noreferrer" class="btn-original-link">
           View Original ↗
         </a>
       `;
@@ -287,8 +287,8 @@ window.renderInspirationPage = async function(state) {
           </span>
 
           ${item.relevanceScore ? `
-            <span class="relevance-badge" title="Relevance Score">
-              <i class="fa-solid fa-bolt" style="font-size: 10px;"></i> ${item.relevanceScore}%
+            <span class="relevance-badge" title="Calculated Relevance Score">
+              <i class="fa-solid fa-bolt" style="font-size: 10px;"></i> ${item.relevanceScore}% Match
             </span>
           ` : ''}
         </div>
