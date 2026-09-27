@@ -15,7 +15,7 @@
     }
   }
 
-  // 1. Relevance Score Calculator (calculateRelevance - Section 11)
+  // 1. Relevance Score Calculator (calculateRelevance)
   function calculateRelevance(result, query) {
     if (!query) return 85;
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -53,7 +53,7 @@
     return Math.min(99, Math.max(45, score));
   }
 
-  // 2. Demo Inspiration Provider (Demo Mode - Section 15)
+  // 2. Demo Inspiration Provider (Demo Mode)
   class DemoInspirationProvider extends InspirationProvider {
     constructor(data) {
       super('DemoInspirationProvider');
@@ -61,7 +61,7 @@
     }
 
     async search(query, filters = {}) {
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       let items = [...this.dataset];
       let searchMeta = {
@@ -107,7 +107,7 @@
     }
   }
 
-  // 3. Live Server Search Provider (Backend Proxy via /api/inspiration/search - Section 3 & 12)
+  // 3. Live Server Search Provider (Backend Proxy via /api/inspiration/search)
   class LiveSearchProvider extends InspirationProvider {
     constructor() {
       super('LiveSearchProvider');
@@ -120,27 +120,23 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query, filters })
         });
-        
+
+        if (!res.ok) {
+          throw new Error(`Server returned HTTP ${res.status}`);
+        }
+
         const data = await res.json();
         console.log('[DesignPilot Provider] Live server search response:', data);
 
         // Handle Server Response Statuses
-        if (data.status === 'demo_mode') {
-          // Switch to Demo Provider if USE_DEMO_INSPIRATION=true is set on server
+        if (data.status === 'demo_mode' || data.status === 'unconfigured') {
+          // If server is in demo mode or unconfigured (missing API token), return demo dataset results
           if (window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
             const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
-            return demoProv.search(query, filters);
+            const demoRes = await demoProv.search(query, filters);
+            demoRes.searchMeta.notice = data.message || 'Demo dataset active (Live search unconfigured)';
+            return demoRes;
           }
-        }
-
-        if (data.status === 'unconfigured') {
-          return {
-            items: [],
-            error: 'Live inspiration search is not configured.',
-            message: data.message || 'ENVATO_API_TOKEN environment variable is missing.',
-            isLiveConfigured: false,
-            searchMeta: { provider: 'LiveSearchProvider' }
-          };
         }
 
         if (data.status === 'rate_limited') {
@@ -155,7 +151,7 @@
         if (data.status === 'error') {
           return {
             items: [],
-            error: 'Inspiration source temporarily unavailable.',
+            error: 'Inspiration search is temporarily unavailable.',
             message: data.message,
             isLiveConfigured: true,
             searchMeta: { provider: 'LiveSearchProvider' }
@@ -195,10 +191,16 @@
           }
         };
       } catch (err) {
-        console.error('[DesignPilot Provider] Live search endpoint request failed:', err);
+        console.warn('[DesignPilot Provider] Live search endpoint fallback to Demo:', err);
+        // Fallback to Demo Mode if endpoint fails or network error occurs
+        if (window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
+          const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
+          return demoProv.search(query, filters);
+        }
+
         return {
           items: [],
-          error: 'Inspiration source temporarily unavailable.',
+          error: 'Inspiration search is temporarily unavailable.',
           message: err.message,
           searchMeta: { provider: 'LiveSearchProvider' }
         };

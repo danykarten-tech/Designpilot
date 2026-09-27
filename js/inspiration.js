@@ -7,7 +7,7 @@ window.initInspiration = function(state) {
   const inspBtn = document.getElementById('insp-page-search-btn');
   const sourceSelect = document.getElementById('insp-source-select');
 
-  // Default to LiveSearchProvider (or Demo if USE_DEMO_INSPIRATION set)
+  // Default Provider
   if (!state.provider) {
     state.provider = new window.LiveSearchProvider();
   }
@@ -127,7 +127,7 @@ window.renderInspirationPage = async function(state) {
 
   if (!grid) return;
 
-  // 1. Skeleton Loading State
+  // 1. Loading State Setup
   grid.style.display = 'grid';
   grid.innerHTML = Array(4).fill(0).map(() => `
     <div class="design-card skeleton-card">
@@ -143,13 +143,13 @@ window.renderInspirationPage = async function(state) {
   if (activeTitle) activeTitle.textContent = state.searchQuery || 'Design Inspiration';
   if (countText) countText.textContent = 'Searching inspiration provider...';
 
-  // 2. Query Provider
   let response = { items: [], searchMeta: {} };
   if (!state.provider) {
     state.provider = new window.LiveSearchProvider();
   }
 
   try {
+    // 2. Execute Search
     response = await state.provider.search(state.searchQuery, {
       category: state.activeFilter || 'All',
       source: state.activeSource || 'All Sources'
@@ -158,15 +158,17 @@ window.renderInspirationPage = async function(state) {
     console.warn('[DesignPilot Provider] Provider search error:', err);
     response = {
       items: [],
-      error: 'Inspiration source temporarily unavailable.',
+      error: 'Inspiration search is temporarily unavailable.',
       message: err.message
     };
+  } finally {
+    // Ensure loading state terminates
   }
 
-  // 3. Handle Explicit API Error States (Section 12)
+  // 3. Handle Error State
   if (response.error) {
     grid.style.display = 'block';
-    if (countText) countText.textContent = 'Provider notice';
+    if (countText) countText.textContent = 'Inspiration search is temporarily unavailable.';
 
     grid.innerHTML = `
       <div class="no-results-box" style="border: 1px dashed var(--border-color); padding: 36px 20px; text-align: center; border-radius: var(--radius-lg); background: var(--bg-surface);">
@@ -175,12 +177,12 @@ window.renderInspirationPage = async function(state) {
         </div>
         <h3 style="font-size: 18px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px;">${response.error}</h3>
         <p style="color: var(--text-secondary); font-size: 14px; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
-          ${response.message || 'Please check your environment configuration or try again shortly.'}
+          ${response.message || 'Please check your connection or try again shortly.'}
         </p>
 
         <div class="suggested-searches-list" style="margin-top: 16px;">
           <button class="suggestion-chip switch-demo-chip" style="background: var(--primary-color); color: #fff; border: none; font-weight: 600;">
-            <i class="fa-solid fa-flask" style="margin-right: 6px;"></i> Switch to Demo Mode
+            <i class="fa-solid fa-flask" style="margin-right: 6px;"></i> View Demo Results
           </button>
         </div>
       </div>
@@ -201,18 +203,6 @@ window.renderInspirationPage = async function(state) {
   const results = response.items || [];
   const searchMeta = response.searchMeta || {};
 
-  // 4. Developer Debug Information Logging (Section 15)
-  console.groupCollapsed(`[DesignPilot Debug] Query: "${state.searchQuery || 'All'}" | Provider: ${searchMeta.provider || 'LiveSearchProvider'}`);
-  console.log(`Normalized Query: "${searchMeta.normalizedQuery || state.searchQuery}"`);
-  console.log(`Total Results Returned: ${results.length}`);
-  results.forEach((res, i) => {
-    console.log(`[#${i+1}] Title: "${res.title}" | Score: ${res.relevanceScore || 80}%`);
-    console.log(`    Source: ${res.sourceName || res.source} | Source URL: ${res.sourceUrl}`);
-    console.log(`    Original URL: ${res.originalUrl || 'NULL (Disabled)'}`);
-    console.log(`    Preview Image: ${res.previewImage || 'Fallback Image'}`);
-  });
-  console.groupEnd();
-
   // Header Title
   if (searchMeta.wasCorrected && searchMeta.correctedQuery) {
     if (activeTitle) {
@@ -222,7 +212,7 @@ window.renderInspirationPage = async function(state) {
     if (activeTitle) activeTitle.textContent = state.searchQuery || 'Design Inspiration';
   }
 
-  // 5. Empty State (Zero Results)
+  // 4. Handle Empty State
   if (!results || results.length === 0) {
     grid.style.display = 'block';
     if (countText) countText.textContent = '0 inspirations found';
@@ -255,7 +245,7 @@ window.renderInspirationPage = async function(state) {
     return;
   }
 
-  // 6. Results Grid Rendering with Explicit Card Actions (Section 5)
+  // 5. Handle Success State
   grid.style.display = 'grid';
   if (countText) countText.textContent = `${results.length} inspiration result${results.length !== 1 ? 's' : ''}`;
 
@@ -265,17 +255,15 @@ window.renderInspirationPage = async function(state) {
     const hasValidOriginal = isValidUrl(item.originalUrl);
     const hasValidSource = isValidUrl(item.sourceUrl);
 
-    // Image handling: Use provider image, or fallback UI state if null
     const displayImgSrc = item.previewImage || item.thumbnailImage || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%231a1d21"/><text x="50%" y="50%" fill="%23777c85" font-size="16" font-family="sans-serif" text-anchor="middle" dy=".3em">No Preview Available</text></svg>';
 
-    // Build Action Buttons for Visit Website ↗ vs View Source ↗
     let actionButtonsHtml = '';
     if (hasValidOriginal && hasValidSource) {
       actionButtonsHtml = `
         <a href="${item.originalUrl}" target="_blank" rel="noopener" class="btn-original-link">
           Visit Website ↗
         </a>
-        <a href="${item.sourceUrl}" target="_blank" rel="noopener" class="btn-original-link" style="background: var(--bg-subtle); border: 1px solid var(--border-color);" title="View source page on Envato">
+        <a href="${item.sourceUrl}" target="_blank" rel="noopener" class="btn-original-link" style="background: var(--bg-subtle); border: 1px solid var(--border-color);" title="View source page">
           View Source ↗
         </a>
       `;
@@ -305,7 +293,7 @@ window.renderInspirationPage = async function(state) {
           <img class="card-thumb" src="${displayImgSrc}" alt="${item.title}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;600&quot; height=&quot;400&quot; viewBox=&quot;0 0 600 400&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%231a1d21&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; fill=&quot;%23777c85&quot; font-size=&quot;16&quot; font-family=&quot;sans-serif&quot; text-anchor=&quot;middle&quot; dy=&quot;.3em&quot;>Preview Unavailable</text></svg>';">
           
           <span class="card-source-tag">
-            <span class="source-dot dot-envato"></span> ${item.sourceName || item.source || 'Envato'}
+            <span class="source-dot ${item.dotClass || 'dot-awwwards'}"></span> ${item.sourceName || item.source || 'Inspiration'}
             ${item.isDemo ? '<span class="demo-tag-pill">DEMO</span>' : ''}
           </span>
 
