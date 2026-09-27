@@ -94,47 +94,58 @@ function normalizeEnvatoItem(item, query) {
 }
 
 module.exports = async function handler(req, res) {
-  let query = '';
-  let filters = {};
-  let useDemo = false;
-
-  if (req.method === 'GET') {
-    query = req.query.query || '';
-    useDemo = req.query.useDemo === 'true';
-  } else {
-    let body = req.body;
-    if (typeof body === 'string') {
-      try { body = JSON.parse(body); } catch (e) { body = {}; }
+  function sendJson(statusCode, data) {
+    if (typeof res.status === 'function') {
+      return res.status(statusCode).json(data);
     }
-    body = body || {};
-    query = body.query || '';
-    filters = body.filters || {};
-    useDemo = body.useDemo;
-  }
-
-  const isDemoMode = process.env.USE_DEMO_INSPIRATION === 'true' || useDemo === true;
-  if (isDemoMode) {
-    return res.status(200).json({
-      status: 'demo_mode',
-      isLiveConfigured: false,
-      useDemo: true,
-      message: 'Demo mode active via USE_DEMO_INSPIRATION=true switch',
-      query, filters
-    });
-  }
-
-  const token = (process.env.ENVATO_API_TOKEN || '').trim();
-  if (!token) {
-    return res.status(200).json({
-      status: 'unconfigured',
-      isLiveConfigured: false,
-      error: 'Live inspiration search is not configured.',
-      message: 'ENVATO_API_TOKEN environment variable is missing. Set token in Vercel project environment settings.',
-      query, filters, results: []
-    });
+    res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(data));
   }
 
   try {
+    let query = '';
+    let filters = {};
+    let useDemo = false;
+
+    if (req.method === 'GET') {
+      const parsedUrl = url.parse(req.url, true);
+      query = parsedUrl.query.query || (req.query && req.query.query) || '';
+      useDemo = parsedUrl.query.useDemo === 'true' || (req.query && req.query.useDemo === 'true');
+    } else {
+      let body = req.body || {};
+      if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (e) { body = {}; }
+      }
+      query = body.query || '';
+      filters = body.filters || {};
+      useDemo = body.useDemo;
+    }
+
+    const isDemoMode = process.env.USE_DEMO_INSPIRATION === 'true' || useDemo === true;
+    if (isDemoMode) {
+      return sendJson(200, {
+        status: 'demo_mode',
+        isLiveConfigured: false,
+        useDemo: true,
+        message: 'Demo mode active via USE_DEMO_INSPIRATION=true switch',
+        query,
+        filters
+      });
+    }
+
+    const token = (process.env.ENVATO_API_TOKEN || '').trim();
+    if (!token) {
+      return sendJson(200, {
+        status: 'unconfigured',
+        isLiveConfigured: false,
+        error: 'Live inspiration search is not configured.',
+        message: 'ENVATO_API_TOKEN environment variable is missing. Set token in Vercel project environment settings.',
+        query,
+        filters,
+        results: []
+      });
+    }
+
     const apiUrl = `https://api.envato.com/v1/discovery/search/search/item?site=themeforest.net&term=${encodeURIComponent(query || 'footwear ecommerce')}`;
     const parsedUrl = url.parse(apiUrl);
 
@@ -198,8 +209,14 @@ module.exports = async function handler(req, res) {
       apiReq.end();
     });
 
-    return res.status(200).json(apiResult);
+    return sendJson(200, apiResult);
+
   } catch (err) {
-    return res.status(200).json({ status: 'error', error: err.message, results: [] });
+    return sendJson(200, {
+      status: 'error',
+      error: 'Inspiration source temporarily unavailable.',
+      message: err.message,
+      results: []
+    });
   }
 };

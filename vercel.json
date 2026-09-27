@@ -1,9 +1,3 @@
 {
-  "version": 2,
-  "rewrites": [
-    {
-      "source": "/api/inspiration/search",
-      "destination": "/api/inspiration/search"
-    }
-  ]
+  "cleanUrls": true
 }
