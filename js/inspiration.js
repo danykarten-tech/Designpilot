@@ -344,14 +344,12 @@ window.renderInspirationPage = async function(state) {
   }
 
   // If "All Sources" is selected, render grouped sections ordered by EXACT priority:
-  // Priority 1: GRAPHICRIVER
-  // Priority 2: ENVATO / THEMEFOREST
-  // Priority 3: AWWWARDS
-  // Priority 4: DRIBBBLE
-  // Priority 5: BEHANCE
-  // Priority 6: OTHER WEB INSPIRATION
+  // Priority 1: ENVATO / THEMEFOREST
+  // Priority 2: AWWWARDS
+  // Priority 3: DRIBBBLE
+  // Priority 4: BEHANCE
+  // Priority 5: OTHER WEB INSPIRATION
   const sectionDefinitions = [
-    { key: 'GRAPHICRIVER', title: 'GRAPHICRIVER', selectValue: 'GraphicRiver', dotClass: 'dot-envato' },
     { key: 'ENVATO_THEMEFOREST', title: 'ENVATO / THEMEFOREST', selectValue: 'Envato / ThemeForest', dotClass: 'dot-envato' },
     { key: 'AWWWARDS', title: 'AWWWARDS', selectValue: 'Awwwards', dotClass: 'dot-awwwards' },
     { key: 'DRIBBBLE', title: 'DRIBBBLE', selectValue: 'Dribbble', dotClass: 'dot-dribbble' },
