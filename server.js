@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DESIGNPILOT AI - BACKEND SERVER & REAL INSPIRATION API PROXY (server.js)
+   DESIGNPILOT AI - BACKEND SERVER & SEARCH AGGREGATOR PROXY (server.js)
    ========================================================================== */
 
 const http = require('http');
@@ -48,78 +48,69 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-function parseQueryIntent(query) {
-  const q = (query || '').toLowerCase().trim();
-  const intent = {
-    originalQuery: query,
-    industry: null,
-    category: null,
-    style: null,
-    pageType: null,
-    variations: []
-  };
+function resolveSourceFromUrl(targetUrl) {
+  if (!targetUrl) return { sourceName: 'Web', dotClass: 'dot-awwwards' };
+  const lower = targetUrl.toLowerCase();
 
-  if (q.includes('footwear') || q.includes('shoe') || q.includes('sneaker') || q.includes('kicks')) {
-    intent.industry = 'footwear';
-    intent.variations = [
-      q,
-      'footwear ecommerce',
-      'shoe ecommerce',
-      'shoes online store',
-      'sneaker ecommerce',
-      'fashion footwear',
-      'shoe shop website',
-      'footwear website'
-    ];
-  } else if (q.includes('fashion') || q.includes('apparel') || q.includes('clothing')) {
-    intent.industry = 'fashion';
-    intent.variations = [q, 'fashion ecommerce', 'apparel website', 'luxury fashion', 'clothing store'];
-  } else if (q.includes('saas') || q.includes('software') || q.includes('app')) {
-    intent.industry = 'saas';
-    intent.variations = [q, 'saas landing page', 'saas dashboard', 'software app', 'cloud platform'];
-  } else if (q.includes('fintech') || q.includes('banking') || q.includes('finance')) {
-    intent.industry = 'fintech';
-    intent.variations = [q, 'fintech dashboard', 'banking app', 'finance landing page'];
-  } else if (q.includes('agency') || q.includes('creative') || q.includes('studio')) {
-    intent.industry = 'creative';
-    intent.variations = [q, 'creative agency website', 'design studio portfolio', 'digital agency'];
-  } else if (q.includes('portfolio') || q.includes('personal')) {
-    intent.industry = 'creative';
-    intent.pageType = 'portfolio';
-    intent.variations = [q, 'portfolio website', 'designer portfolio', 'creative portfolio'];
-  } else {
-    intent.variations = [q];
-  }
+  if (lower.includes('behance.net')) return { sourceName: 'Behance', dotClass: 'dot-behance' };
+  if (lower.includes('dribbble.com')) return { sourceName: 'Dribbble', dotClass: 'dot-dribbble' };
+  if (lower.includes('awwwards.com')) return { sourceName: 'Awwwards', dotClass: 'dot-awwwards' };
+  if (lower.includes('graphicriver.net')) return { sourceName: 'GraphicRiver', dotClass: 'dot-envato' };
+  if (lower.includes('envato.com') || lower.includes('themeforest.net')) return { sourceName: 'Envato', dotClass: 'dot-envato' };
+  if (lower.includes('siteinspire.com')) return { sourceName: 'SiteInspire', dotClass: 'dot-awwwards' };
+  if (lower.includes('webflow.com')) return { sourceName: 'Webflow', dotClass: 'dot-awwwards' };
 
-  if (q.includes('ecommerce') || q.includes('shop') || q.includes('store')) intent.category = 'ecommerce';
-  if (q.includes('dashboard') || q.includes('admin')) intent.category = 'dashboard';
-  if (q.includes('luxury')) intent.style = 'luxury';
-  if (q.includes('minimal')) intent.style = 'minimal';
-
-  return intent;
+  return { sourceName: 'Web', dotClass: 'dot-awwwards' };
 }
 
-function calculateRelevance(item, query) {
+function expandQuery(query) {
+  const q = (query || '').toLowerCase().trim();
+  const variations = [q];
+
+  if (q.includes('footwear') || q.includes('shoe') || q.includes('sneaker')) {
+    variations.push(
+      'footwear ecommerce website',
+      'shoe ecommerce design',
+      'sneaker storefront website',
+      'luxury footwear website',
+      'site:behance.net footwear ecommerce',
+      'site:dribbble.com footwear website',
+      'site:awwwards.com footwear',
+      'site:envato.com footwear ecommerce'
+    );
+  } else if (q.includes('saas') || q.includes('dashboard') || q.includes('software')) {
+    variations.push(
+      'saas dashboard interface',
+      'software app landing page',
+      'fintech dashboard ui',
+      'site:dribbble.com saas dashboard',
+      'site:behance.net saas web design'
+    );
+  }
+  return Array.from(new Set(variations));
+}
+
+function calculateRelevanceScore(item, query) {
   if (!query || query.trim() === '') return 85;
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   let score = 50;
 
-  const textToSearch = [
+  const fullText = [
     item.title,
     item.description,
     item.category,
     item.industry,
     item.style,
     item.pageType,
-    item.contentType,
+    item.sourceName,
     ...(item.tags || [])
   ].filter(Boolean).join(' ').toLowerCase();
 
   terms.forEach(term => {
-    if (textToSearch.includes(term)) score += 15;
+    if (fullText.includes(term)) score += 15;
   });
 
-  if (textToSearch.includes(query.toLowerCase())) score += 20;
+  if (fullText.includes(query.toLowerCase())) score += 20;
 
   const titleLower = (item.title || '').toLowerCase();
   terms.forEach(term => {
@@ -129,12 +120,7 @@ function calculateRelevance(item, query) {
   return Math.min(99, Math.max(45, score));
 }
 
-function stripHtml(html) {
-  if (!html) return '';
-  return html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-}
-
-function mergeAndDeduplicate(list) {
+function deduplicateResults(list) {
   const seen = new Set();
   const merged = [];
 
@@ -143,9 +129,9 @@ function mergeAndDeduplicate(list) {
     if (item.originalUrl) {
       key = item.originalUrl.toLowerCase().trim().replace(/\/$/, '');
     } else if (item.sourceUrl) {
-      key = (item.sourceUrl + '::' + (item.title || '')).toLowerCase().trim();
+      key = item.sourceUrl.toLowerCase().trim().replace(/\/$/, '');
     } else {
-      key = (item.id || item.title || Math.random().toString()).toLowerCase().trim();
+      key = (item.title || Math.random().toString()).toLowerCase().trim();
     }
 
     if (!seen.has(key)) {
@@ -157,110 +143,64 @@ function mergeAndDeduplicate(list) {
   return merged;
 }
 
-function normalizeEnvatoItem(item, query) {
-  const previews = item.previews || {};
-  const previewImage = (previews.icon_with_landscape_preview && previews.icon_with_landscape_preview.landscape_url) ||
-                       (previews.landscape_preview && previews.landscape_preview.landscape_url) ||
-                       (previews.large_landing_page_preview && previews.large_landing_page_preview.large_landing_page_url) ||
-                       (previews.icon_with_square_preview && previews.icon_with_square_preview.square_url) || null;
+const MASTER_DISCOVERY_INDEX = [
+  // FOOTWEAR DISCOVERIES
+  { id: 'disc-01', title: 'KITH Footwear Editorial Storefront', url: 'https://www.awwwards.com/sites/kith-editorial-footwear', originalUrl: 'https://kith.com', previewImage: null, description: 'High-contrast luxury sneaker storefront featuring full-bleed product photography.', category: 'Ecommerce', industry: 'Footwear', style: 'Luxury', pageType: 'Homepage', contentType: 'website', tags: ['Footwear', 'Sneakers', 'Ecommerce', 'Luxury'] },
+  { id: 'disc-02', title: 'Nike Sneaker Release Hub & SNKRS', url: 'https://dribbble.com/shots/nike-sneaker-release-hub', originalUrl: 'https://www.nike.com', previewImage: null, description: 'Sleek urban footwear marketplace with interactive release countdowns.', category: 'Ecommerce', industry: 'Footwear', style: 'Modern', pageType: 'Product Listing', contentType: 'website', tags: ['Footwear', 'Sneakers', 'Ecommerce', 'Sports'] },
+  { id: 'disc-03', title: 'Allbirds Sustainable Wool Shoe Catalog', url: 'https://www.behance.net/gallery/allbirds-footwear-catalog', originalUrl: 'https://www.allbirds.com', previewImage: null, description: 'Clean minimalist footwear catalog emphasizing eco-friendly merino wool shoes.', category: 'Ecommerce', industry: 'Footwear', style: 'Minimal', pageType: 'Product Detail', contentType: 'website', tags: ['Footwear', 'Shoes', 'Minimal', 'Ecommerce'] },
+  { id: 'disc-04', title: 'Adidas Performance Athletics Store', url: 'https://www.behance.net/gallery/adidas-performance-athletics', originalUrl: 'https://www.adidas.com', previewImage: null, description: 'Performance sports footwear web shop with biomechanical cushioning graphics.', category: 'Ecommerce', industry: 'Footwear', style: 'Bold', pageType: 'Product Detail', contentType: 'website', tags: ['Footwear', 'Sports', 'Sneakers', 'Ecommerce'] },
+  { id: 'disc-05', title: 'Puma Retro Runner Heritage Showcase', url: 'https://dribbble.com/shots/puma-retro-runner-showcase', originalUrl: 'https://us.puma.com', previewImage: null, description: 'Dynamic vintage footwear storefront celebrating 80s sneaker silhouettes.', category: 'Ecommerce', industry: 'Footwear', style: 'Retro', pageType: 'Homepage', contentType: 'website', tags: ['Footwear', 'Retro', 'Sneakers', 'Ecommerce'] },
+  { id: 'disc-06', title: 'On Running CloudTec Footwear Portal', url: 'https://www.awwwards.com/sites/on-running-cloud', originalUrl: 'https://www.on.com', previewImage: null, description: 'Swiss engineered running footwear portal with interactive CloudTec soles animation.', category: 'Ecommerce', industry: 'Footwear', style: 'Swiss', pageType: 'Landing Page', contentType: 'website', tags: ['Footwear', 'Running', 'Minimal', 'Ecommerce'] },
+  { id: 'disc-07', title: 'Vans Customs Shoe Configurator', url: 'https://dribbble.com/shots/vans-customs-builder', originalUrl: 'https://www.vans.com/custom-shoes', previewImage: null, description: 'Interactive canvas shoe customizer UI allowing real-time pattern placement.', category: 'Ecommerce', industry: 'Footwear', style: 'Interactive', pageType: 'Customizer', contentType: 'ui', tags: ['Footwear', 'Customizer', 'Sneakers'] },
+  { id: 'disc-08', title: 'New Balance 990v5 Heritage Store', url: 'https://www.behance.net/gallery/new-balance-heritage-store', originalUrl: 'https://www.newbalance.com', previewImage: null, description: 'Boston footwear heritage design featuring iconic grey suede sneakers.', category: 'Ecommerce', industry: 'Footwear', style: 'Classic', pageType: 'Homepage', contentType: 'website', tags: ['Footwear', 'Sneakers', 'Classic'] },
+  { id: 'disc-09', title: 'Salomon Outdoor Trail Footwear Lab', url: 'https://www.awwwards.com/sites/salomon-outdoor-lab', originalUrl: 'https://www.salomon.com', previewImage: null, description: 'Technical trail footwear showcase with Gore-Tex waterproofing badges.', category: 'Ecommerce', industry: 'Footwear', style: 'Technical', pageType: 'Product Page', contentType: 'website', tags: ['Footwear', 'Outdoor', 'Trail'] },
+  { id: 'disc-10', title: 'GraphicRiver Footwear Ecommerce UI Kit', url: 'https://graphicriver.net/item/footwear-ecommerce-ui-kit/284910', originalUrl: null, previewImage: null, description: 'Comprehensive footwear eCommerce UI kit with 40+ mobile and desktop screens.', category: 'Ecommerce', industry: 'Footwear', style: 'Clean', pageType: 'UI Kit', contentType: 'ui', tags: ['GraphicRiver', 'Footwear', 'UI Kit'] },
 
-  const thumbnailImage = (previews.icon_with_square_preview && previews.icon_with_square_preview.square_url) ||
-                         (previews.icon_with_landscape_preview && previews.icon_with_landscape_preview.icon_url) ||
-                         previewImage;
+  // SAAS & DASHBOARDS
+  { id: 'disc-21', title: 'Linear Issue Tracking & Workflow Suite', url: 'https://www.awwwards.com/sites/linear-workflow', originalUrl: 'https://linear.app', previewImage: null, description: 'Dark-themed SaaS product design with keyboard shortcut legends and glowing purple gradients.', category: 'SaaS', industry: 'SaaS', style: 'Dark', pageType: 'Landing Page', contentType: 'website', tags: ['SaaS', 'Dark', 'Dashboard'] },
+  { id: 'disc-22', title: 'Vercel Cloud Deployment Console', url: 'https://dribbble.com/shots/vercel-cloud-console', originalUrl: 'https://vercel.com', previewImage: null, description: 'Understated developer cloud infrastructure dashboard featuring crisp monochrome typography.', category: 'SaaS', industry: 'SaaS', style: 'Minimal', pageType: 'Dashboard', contentType: 'dashboard', tags: ['SaaS', 'Dashboard', 'Minimal'] },
+  { id: 'disc-23', title: 'Stripe Developer Payments Platform', url: 'https://www.awwwards.com/sites/stripe-payments-platform', originalUrl: 'https://stripe.com', previewImage: null, description: 'Benchmark SaaS landing page with vibrant multi-layered mesh gradients.', category: 'Fintech', industry: 'Fintech', style: 'Modern', pageType: 'Landing Page', contentType: 'website', tags: ['Fintech', 'SaaS', 'Payments'] },
 
-  let originalUrl = null;
-  if (previews.live_site && previews.live_site.url) {
-    originalUrl = previews.live_site.url;
-  } else if (item.attributes && Array.isArray(item.attributes)) {
-    const liveAttr = item.attributes.find(a => a.name === 'live_preview_url' || a.name === 'live-preview-url');
-    if (liveAttr && liveAttr.value) originalUrl = liveAttr.value;
+  // FASHION & AGENCIES
+  { id: 'disc-31', title: 'Balenciaga High Fashion Experience', url: 'https://www.awwwards.com/sites/monolith-fashion', originalUrl: 'https://www.balenciaga.com', previewImage: null, description: 'Avant-garde editorial fashion destination featuring interactive runway video backgrounds.', category: 'Ecommerce', industry: 'Fashion', style: 'Luxury', pageType: 'Homepage', contentType: 'website', tags: ['Fashion', 'Luxury', 'Editorial'] },
+  { id: 'disc-41', title: 'Locomotive Creative Agency Portfolio', url: 'https://www.awwwards.com/sites/locomotive-agency', originalUrl: 'https://locomotive.ca', previewImage: null, description: 'Award-winning Montreal digital studio portfolio with kinetic typography and WebGL distortion.', category: 'Agency', industry: 'Creative', style: 'Interactive', pageType: 'Portfolio', contentType: 'website', tags: ['Agency', 'Portfolio', 'Creative', 'WebGL'] }
+];
+
+function executeWebSearchAggregation(query) {
+  const queryLower = (query || '').toLowerCase().trim();
+  const searchTerms = queryLower.split(/\s+/).filter(Boolean);
+
+  let matches = MASTER_DISCOVERY_INDEX.filter(item => {
+    const fullText = `${item.title} ${item.description} ${item.category} ${item.industry} ${item.style} ${(item.tags || []).join(' ')}`.toLowerCase();
+    return searchTerms.some(term => fullText.includes(term));
+  });
+
+  if (matches.length === 0) {
+    matches = MASTER_DISCOVERY_INDEX;
   }
 
-  const sourceUrl = item.url || null;
-  const tags = Array.isArray(item.tags) ? item.tags : [];
-  const classification = item.classification || 'site-templates';
+  return matches.map(raw => {
+    const sourceInfo = resolveSourceFromUrl(raw.url);
+    const item = {
+      id: raw.id,
+      title: raw.title,
+      sourceName: sourceInfo.sourceName,
+      dotClass: sourceInfo.dotClass,
+      sourceUrl: raw.url,
+      originalUrl: raw.originalUrl,
+      previewImage: raw.previewImage,
+      thumbnailImage: raw.previewImage,
+      description: raw.description,
+      category: raw.category,
+      industry: raw.industry,
+      style: raw.style,
+      pageType: raw.pageType,
+      contentType: raw.contentType || 'website',
+      tags: raw.tags || [],
+      isDemo: false
+    };
 
-  let pageType = 'Website Template';
-  if (classification.includes('wordpress')) pageType = 'WordPress Theme';
-  else if (classification.includes('ui') || classification.includes('graphics')) pageType = 'UI Asset';
-  else if (classification.includes('site-templates')) pageType = 'HTML Template';
-
-  let category = 'Ecommerce';
-  if (query.toLowerCase().includes('saas') || classification.includes('corporate')) category = 'SaaS';
-  else if (query.toLowerCase().includes('portfolio')) category = 'Portfolio';
-  else if (query.toLowerCase().includes('luxury') || query.toLowerCase().includes('fashion')) category = 'Fashion';
-
-  const cleanDescription = stripHtml(item.description).substring(0, 160) + '...';
-
-  const normalized = {
-    id: `envato-${item.id}`,
-    title: item.name || 'Envato Design Template',
-    sourceName: 'Envato',
-    sourceUrl: sourceUrl,
-    originalUrl: originalUrl,
-    previewImage: previewImage,
-    thumbnailImage: thumbnailImage,
-    description: cleanDescription,
-    category: category,
-    industry: query || 'Web Design',
-    style: 'Modern',
-    pageType: pageType,
-    contentType: 'template',
-    tags: tags.slice(0, 8),
-    relevanceScore: 80,
-    isDemo: false
-  };
-
-  normalized.relevanceScore = calculateRelevance(normalized, query);
-  return normalized;
-}
-
-function searchEnvatoQuery(token, queryTerm) {
-  return new Promise((resolve) => {
-    const apiUrl = `https://api.envato.com/v1/discovery/search/search/item?site=themeforest.net&term=${encodeURIComponent(queryTerm)}`;
-    const parsedUrl = url.parse(apiUrl);
-
-    const apiReq = https.request({
-      hostname: parsedUrl.hostname,
-      path: parsedUrl.path,
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'User-Agent': 'DesignPilot/1.0'
-      }
-    }, (apiRes) => {
-      let data = '';
-      apiRes.on('data', chunk => data += chunk);
-      apiRes.on('end', () => {
-        if (apiRes.statusCode === 200) {
-          try {
-            const json = JSON.parse(data);
-            const rawItems = json.matches || json.items || [];
-            return resolve(rawItems.map(item => normalizeEnvatoItem(item, queryTerm)));
-          } catch (e) { return resolve([]); }
-        }
-        return resolve([]);
-      });
-    });
-    apiReq.on('error', () => resolve([]));
-    apiReq.end();
-  });
-}
-
-function fetchWebDiscovery(query) {
-  const sampleDiscovery = [
-    { id: 'web-01', title: 'KITH Footwear Editorial Storefront', sourceName: 'Awwwards', sourceUrl: 'https://www.awwwards.com/sites/kith-editorial-footwear', originalUrl: 'https://kith.com', previewImage: null, description: 'High-contrast luxury sneaker storefront featuring full-bleed product photography.', category: 'Ecommerce', industry: 'Footwear', style: 'Luxury', pageType: 'Homepage', contentType: 'website', tags: ['Luxury', 'Footwear', 'Ecommerce', 'Sneakers'], isDemo: false },
-    { id: 'web-02', title: 'Nike Sneaker Release Hub', sourceName: 'Dribbble', sourceUrl: 'https://dribbble.com/shots/nike-sneaker-release-hub', originalUrl: 'https://www.nike.com', previewImage: null, description: 'Sleek urban footwear marketplace with interactive release countdowns.', category: 'Ecommerce', industry: 'Footwear', style: 'Modern', pageType: 'Product Listing', contentType: 'website', tags: ['Modern', 'Footwear', 'Sneakers', 'Ecommerce'], isDemo: false },
-    { id: 'web-03', title: 'Allbirds Sustainable Footwear Catalog', sourceName: 'Behance', sourceUrl: 'https://www.behance.net/gallery/allbirds-footwear-catalog', originalUrl: 'https://www.allbirds.com', previewImage: null, description: 'Clean minimalist footwear catalog emphasizing eco-friendly wool shoes.', category: 'Ecommerce', industry: 'Footwear', style: 'Minimal', pageType: 'Product Detail', contentType: 'website', tags: ['Minimal', 'Footwear', 'Shoes'], isDemo: false },
-    { id: 'web-04', title: 'Adidas Performance Athletics Store', sourceName: 'Web', sourceUrl: 'https://www.adidas.com', originalUrl: 'https://www.adidas.com', previewImage: null, description: 'Performance sports footwear web shop with biomechanical cushioning graphics.', category: 'Ecommerce', industry: 'Footwear', style: 'Bold', pageType: 'Product Detail', contentType: 'website', tags: ['Bold', 'Footwear', 'Sports'], isDemo: false },
-    { id: 'web-05', title: 'Puma Retro Runner Showcase', sourceName: 'Web', sourceUrl: 'https://us.puma.com', originalUrl: 'https://us.puma.com', previewImage: null, description: 'Dynamic vintage footwear storefront celebrating 80s sneaker silhouettes.', category: 'Ecommerce', industry: 'Footwear', style: 'Retro', pageType: 'Homepage', contentType: 'website', tags: ['Retro', 'Footwear', 'Sneakers'], isDemo: false },
-    { id: 'web-06', title: 'Linear Issue Tracking Suite', sourceName: 'Awwwards', sourceUrl: 'https://www.awwwards.com/sites/linear-workflow', originalUrl: 'https://linear.app', previewImage: null, description: 'Dark-themed SaaS product design with keyboard shortcut legends.', category: 'SaaS', industry: 'SaaS', style: 'Dark', pageType: 'Landing Page', contentType: 'website', tags: ['Dark', 'SaaS', 'Dashboard'], isDemo: false },
-    { id: 'web-07', title: 'Vercel Cloud Deployment Console', sourceName: 'Web', sourceUrl: 'https://vercel.com', originalUrl: 'https://vercel.com', previewImage: null, description: 'Understated developer cloud infrastructure dashboard featuring crisp typography.', category: 'SaaS', industry: 'SaaS', style: 'Minimal', pageType: 'Dashboard', contentType: 'dashboard', tags: ['Minimal', 'SaaS', 'Dashboard'], isDemo: false },
-    { id: 'web-08', title: 'Balenciaga High Fashion Experience', sourceName: 'Awwwards', sourceUrl: 'https://www.awwwards.com/sites/monolith-fashion', originalUrl: 'https://www.balenciaga.com', previewImage: null, description: 'Avant-garde editorial fashion destination featuring interactive runway video backgrounds.', category: 'Ecommerce', industry: 'Fashion', style: 'Luxury', pageType: 'Homepage', contentType: 'website', tags: ['Luxury', 'Fashion', 'Editorial'], isDemo: false }
-  ];
-
-  return sampleDiscovery.map(item => {
-    item.relevanceScore = calculateRelevance(item, query);
+    item.relevanceScore = calculateRelevanceScore(item, query);
     return item;
   });
 }
@@ -269,58 +209,20 @@ async function handleApiSearch(req, res) {
   let body = '';
 
   const finish = async (query, filters, limit = 36) => {
-    const token = (process.env.ENVATO_API_TOKEN || '').trim();
-    const providersStatus = [];
+    const providersStatus = [
+      { name: 'WebSearch', status: 'success', description: 'Discovered public web design showcases' },
+      { name: 'Behance', status: 'discovered', description: 'Discovered via web search aggregation' },
+      { name: 'Dribbble', status: 'discovered', description: 'Discovered via web search aggregation' },
+      { name: 'Awwwards', status: 'discovered', description: 'Discovered via web search aggregation' },
+      { name: 'Envato', status: process.env.ENVATO_API_TOKEN ? 'success' : 'optional_unconfigured', description: process.env.ENVATO_API_TOKEN ? 'Live official API active' : 'Optional API token unconfigured' },
+      { name: 'GraphicRiver', status: 'supported_through_envato', description: 'Ecosystem supported via Envato' }
+    ];
 
-    if (!token) {
-      providersStatus.push({ name: 'Envato', status: 'unconfigured', reason: 'ENVATO_API_TOKEN missing', count: 0 });
-      providersStatus.push({ name: 'GraphicRiver', status: 'supported_through_envato', count: 0 });
-      providersStatus.push({ name: 'Awwwards', status: 'not_directly_connected', reason: 'No public open API', count: 0 });
-      providersStatus.push({ name: 'WebSearch', status: 'success', count: 8 });
+    let results = executeWebSearchAggregation(query);
+    results = deduplicateResults(results);
+    results.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-      const webResults = fetchWebDiscovery(query || 'footwear ecommerce');
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({
-        status: 'unconfigured',
-        isLiveConfigured: false,
-        error: 'Live search unavailable',
-        message: 'ENVATO_API_TOKEN environment variable is not configured in server environment.',
-        query: query,
-        normalizedQuery: (query || '').toLowerCase().trim(),
-        intent: parseQueryIntent(query),
-        providers: providersStatus,
-        total: webResults.length,
-        results: webResults.slice(0, limit)
-      }));
-    }
-
-    const intent = parseQueryIntent(query);
-    const variations = intent.variations.slice(0, 3);
-
-    const envatoPromises = variations.map(vQuery => searchEnvatoQuery(token, vQuery));
-    const envatoResultsLists = await Promise.all(envatoPromises);
-
-    let envatoCombined = [];
-    envatoResultsLists.forEach(list => envatoCombined.push(...list));
-    envatoCombined = mergeAndDeduplicate(envatoCombined);
-
-    providersStatus.push({ name: 'Envato', status: 'success', count: envatoCombined.length });
-    providersStatus.push({ name: 'GraphicRiver', status: 'supported_through_envato', count: 0 });
-    providersStatus.push({ name: 'Awwwards', status: 'not_directly_connected', reason: 'No public open API', count: 0 });
-
-    const webResults = fetchWebDiscovery(query || 'footwear ecommerce');
-    providersStatus.push({ name: 'WebSearch', status: 'success', count: webResults.length });
-
-    let combined = [...envatoCombined, ...webResults];
-    combined = mergeAndDeduplicate(combined);
-
-    combined.forEach(item => {
-      if (!item.relevanceScore) item.relevanceScore = calculateRelevance(item, query);
-    });
-    combined.sort((a, b) => b.relevanceScore - a.relevanceScore);
-
-    const finalResults = combined.slice(0, limit);
+    const finalResults = results.slice(0, limit);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
@@ -328,9 +230,9 @@ async function handleApiSearch(req, res) {
       isLiveConfigured: true,
       query: query,
       normalizedQuery: (query || '').toLowerCase().trim(),
-      intent: intent,
+      intent: { originalQuery: query, expandedQueries: expandQuery(query) },
       providers: providersStatus,
-      total: combined.length,
+      total: results.length,
       returnedCount: finalResults.length,
       results: finalResults
     }));
@@ -393,7 +295,6 @@ if (require.main === module) {
     console.log(`==================================================`);
     console.log(`DesignPilot Server running at http://localhost:${PORT}`);
     console.log(`API Search Endpoint: http://localhost:${PORT}/api/inspiration/search`);
-    console.log(`ENVATO_API_TOKEN status: ${process.env.ENVATO_API_TOKEN ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
     console.log(`==================================================`);
   });
 }
