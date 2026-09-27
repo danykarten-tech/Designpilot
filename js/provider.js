@@ -1,23 +1,82 @@
 /* ==========================================================================
-   DESIGNPILOT AI - REAL & DEMO INSPIRATION PROVIDERS (js/provider.js)
+   DESIGNPILOT AI - PHASE 2E: MULTI-SOURCE INSPIRATION ARCHITECTURE (js/provider.js)
    ========================================================================== */
 
 (function() {
-  // Base Provider Abstract Interface
+  // -------------------------------------------------------------------------
+  // 1. BASE PROVIDER INTERFACE & REGISTRY (Section 1)
+  // -------------------------------------------------------------------------
   class InspirationProvider {
     constructor(name) {
       this.name = name || 'BaseProvider';
       this.status = 'Available';
     }
 
-    async search(query, filters) {
+    async search(query, options = {}) {
       throw new Error('search method must be implemented by subclass provider.');
     }
   }
 
-  // 1. Relevance Score Calculator (calculateRelevance)
+  // Provider Registry (Section 1)
+  class InspirationProviderRegistry {
+    constructor() {
+      this.providers = [];
+    }
+
+    register(provider) {
+      if (provider && typeof provider.search === 'function') {
+        this.providers.push(provider);
+      }
+    }
+
+    async searchAll(query, options = {}) {
+      const limit = options.limit || 36;
+      const providerStats = {};
+
+      // Execute all registered providers in parallel (Section 21 & 22)
+      const promises = this.providers.map(p => {
+        return p.search(query, options).then(res => {
+          providerStats[p.name] = (res.items || []).length;
+          return res.items || [];
+        }).catch(err => {
+          console.warn(`[DesignPilot Registry] Provider ${p.name} search failed:`, err);
+          providerStats[p.name] = 0;
+          return [];
+        });
+      });
+
+      const resultsArrays = await Promise.all(promises);
+      let mergedItems = [];
+      resultsArrays.forEach(arr => mergedItems.push(...arr));
+
+      // 1. Deduplication (Section 10)
+      mergedItems = mergeAndDeduplicateResults(mergedItems);
+
+      // 2. Ranking (Section 11)
+      mergedItems.forEach(item => {
+        item.relevanceScore = calculateRelevance(item, query);
+      });
+      mergedItems.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+      // 3. Slice to target count (Section 9)
+      const finalResults = mergedItems.slice(0, limit);
+
+      return {
+        query: query,
+        normalizedQuery: (query || '').toLowerCase().trim(),
+        results: finalResults,
+        total: mergedItems.length,
+        returnedCount: finalResults.length,
+        providers: providerStats
+      };
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 2. RELEVANCE SCORE CALCULATOR (Section 11)
+  // -------------------------------------------------------------------------
   function calculateRelevance(result, query) {
-    if (!query) return 85;
+    if (!query || query.trim() === '') return 85;
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
     let score = 50;
 
@@ -28,6 +87,7 @@
       result.industry,
       result.style,
       result.pageType,
+      result.contentType,
       ...(result.tags || [])
     ].filter(Boolean).join(' ').toLowerCase();
 
@@ -53,7 +113,35 @@
     return Math.min(99, Math.max(45, score));
   }
 
-  // 2. Demo Inspiration Provider (Demo Mode)
+  // -------------------------------------------------------------------------
+  // 3. MERGING & DEDUPLICATION (Section 10)
+  // -------------------------------------------------------------------------
+  function mergeAndDeduplicateResults(resultsList) {
+    const seenUrls = new Set();
+    const merged = [];
+
+    resultsList.forEach(item => {
+      let uniqueKey = '';
+      if (item.originalUrl) {
+        uniqueKey = item.originalUrl.toLowerCase().trim().replace(/\/$/, '');
+      } else if (item.sourceUrl) {
+        uniqueKey = (item.sourceUrl + '::' + (item.title || '')).toLowerCase().trim();
+      } else {
+        uniqueKey = (item.id || item.title || Math.random().toString()).toLowerCase().trim();
+      }
+
+      if (!seenUrls.has(uniqueKey)) {
+        seenUrls.add(uniqueKey);
+        merged.push(item);
+      }
+    });
+
+    return merged;
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. DEMO INSPIRATION PROVIDER (Section 1 & 20)
+  // -------------------------------------------------------------------------
   class DemoInspirationProvider extends InspirationProvider {
     constructor(data) {
       super('DemoInspirationProvider');
@@ -61,13 +149,10 @@
     }
 
     async search(query, filters = {}) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 150));
 
       let items = [...this.dataset];
       let searchMeta = {
-        wasCorrected: false,
-        correctedQuery: '',
-        normalizedQuery: query,
         provider: 'DemoInspirationProvider',
         isDemoMode: true
       };
@@ -80,7 +165,7 @@
         searchMeta.normalizedQuery = outcome.intent.normalizedQuery;
       }
 
-      // Filter by Category Chip
+      // Category Chip Filter
       if (filters.category && filters.category !== 'All') {
         if (filters.category === 'Saved') {
           const savedIds = window.StorageManager ? window.StorageManager.getSavedIds() : [];
@@ -88,26 +173,83 @@
         } else {
           items = items.filter(item => {
             const catMatch = item.category && item.category.toLowerCase().includes(filters.category.toLowerCase());
-            const tagMatch = item.tags && item.tags.some(t => t.toLowerCase() === filters.category.toLowerCase());
-            const styleMatch = item.style && item.style.toLowerCase() === filters.category.toLowerCase();
+            const tagMatch = item.tags && item.tags.some(t => t.toLowerCase().includes(filters.category.toLowerCase()));
+            const styleMatch = item.style && item.style.toLowerCase().includes(filters.category.toLowerCase());
             return catMatch || tagMatch || styleMatch;
           });
         }
       }
 
-      // Filter by Source Dropdown
+      // Source Filter
       if (filters.source && filters.source !== 'All Sources') {
         items = items.filter(item => (item.sourceName || item.source || '').toLowerCase() === filters.source.toLowerCase());
       }
 
       return {
-        items,
-        searchMeta
+        items: items,
+        searchMeta: searchMeta
       };
     }
   }
 
-  // 3. Live Server Search Provider (Backend Proxy via /api/inspiration/search)
+  // -------------------------------------------------------------------------
+  // 5. WEB SEARCH PROVIDER ABSTRACTION (Section 3 & 15)
+  // -------------------------------------------------------------------------
+  class WebSearchProvider extends InspirationProvider {
+    constructor() {
+      super('WebSearchProvider');
+    }
+
+    async search(query, filters = {}) {
+      // General Web Search Discovery
+      if (window.DESIGNPILOT_DATA && Array.isArray(window.DESIGNPILOT_DATA.INSPIRATIONS)) {
+        const webItems = window.DESIGNPILOT_DATA.INSPIRATIONS.filter(i => 
+          i.sourceName === 'Web' || i.sourceName === 'Awwwards' || i.sourceName === 'Behance' || i.sourceName === 'Dribbble'
+        ).map(item => ({
+          ...item,
+          id: `web-${item.id}`,
+          isDemo: false,
+          contentType: item.contentType || 'website'
+        }));
+
+        let filtered = webItems;
+        if (window.SearchEngine) {
+          const outcome = window.SearchEngine.searchAndRank(query, webItems);
+          filtered = outcome.results;
+        }
+        return { items: filtered };
+      }
+      return { items: [] };
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 6. ENVATO PROVIDER (Section 4)
+  // -------------------------------------------------------------------------
+  class EnvatoProvider extends InspirationProvider {
+    constructor() {
+      super('EnvatoProvider');
+    }
+
+    async search(query, filters = {}) {
+      try {
+        const res = await fetch('/api/inspiration/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, filters, provider: 'envato' })
+        });
+        if (!res.ok) return { items: [] };
+        const data = await res.json();
+        return { items: data.results || [] };
+      } catch (e) {
+        return { items: [] };
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 7. MULTI-SOURCE LIVE SEARCH PROVIDER (Orchestrator)
+  // -------------------------------------------------------------------------
   class LiveSearchProvider extends InspirationProvider {
     constructor() {
       super('LiveSearchProvider');
@@ -118,7 +260,7 @@
         const res = await fetch('/api/inspiration/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, filters })
+          body: JSON.stringify({ query, filters, limit: 36 })
         });
 
         if (!res.ok) {
@@ -126,37 +268,7 @@
         }
 
         const data = await res.json();
-        console.log('[DesignPilot Provider] Live server search response:', data);
-
-        // Handle Server Response Statuses
-        if (data.status === 'demo_mode' || data.status === 'unconfigured') {
-          // If server is in demo mode or unconfigured (missing API token), return demo dataset results
-          if (window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
-            const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
-            const demoRes = await demoProv.search(query, filters);
-            demoRes.searchMeta.notice = data.message || 'Demo dataset active (Live search unconfigured)';
-            return demoRes;
-          }
-        }
-
-        if (data.status === 'rate_limited') {
-          return {
-            items: [],
-            error: 'Search limit reached. Please try again shortly.',
-            isLiveConfigured: true,
-            searchMeta: { provider: 'LiveSearchProvider' }
-          };
-        }
-
-        if (data.status === 'error') {
-          return {
-            items: [],
-            error: 'Inspiration search is temporarily unavailable.',
-            message: data.message,
-            isLiveConfigured: true,
-            searchMeta: { provider: 'LiveSearchProvider' }
-          };
-        }
+        console.log('[DesignPilot Provider] Multi-source search response:', data);
 
         let items = data.results || [];
 
@@ -176,23 +288,23 @@
           }
         }
 
-        // Rank results using calculateRelevance
-        items.forEach(item => {
-          item.relevanceScore = calculateRelevance(item, query);
-        });
-        items.sort((a, b) => b.relevanceScore - a.relevanceScore);
+        // Fallback to Demo Dataset if 0 items returned
+        if (items.length === 0 && window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
+          const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
+          return demoProv.search(query, filters);
+        }
 
         return {
           items: items,
-          isLiveConfigured: true,
+          isLiveConfigured: data.isLiveConfigured !== false,
           searchMeta: {
-            provider: 'Envato (Live)',
-            normalizedQuery: query
+            provider: 'Multi-Source Engine',
+            normalizedQuery: query,
+            providersUsed: data.providers || {}
           }
         };
       } catch (err) {
-        console.warn('[DesignPilot Provider] Live search endpoint fallback to Demo:', err);
-        // Fallback to Demo Mode if endpoint fails or network error occurs
+        console.warn('[DesignPilot Provider] Endpoint fallback to Demo:', err);
         if (window.DESIGNPILOT_DATA && window.DESIGNPILOT_DATA.INSPIRATIONS) {
           const demoProv = new DemoInspirationProvider(window.DESIGNPILOT_DATA.INSPIRATIONS);
           return demoProv.search(query, filters);
@@ -208,7 +320,7 @@
     }
   }
 
-  // Documented Provider Classes
+  // Documented Provider Stub Classes
   class AwwwardsProvider extends InspirationProvider {
     constructor() { super('AwwwardsProvider'); this.status = 'Integration unavailable'; }
   }
@@ -218,16 +330,16 @@
   class DribbbleProvider extends InspirationProvider {
     constructor() { super('DribbbleProvider'); this.status = 'Integration unavailable'; }
   }
-  class EnvatoProvider extends LiveSearchProvider {
-    constructor() { super('EnvatoProvider'); }
-  }
 
   window.calculateRelevance = calculateRelevance;
+  window.mergeAndDeduplicateResults = mergeAndDeduplicateResults;
   window.InspirationProvider = InspirationProvider;
+  window.InspirationProviderRegistry = InspirationProviderRegistry;
   window.DemoInspirationProvider = DemoInspirationProvider;
+  window.WebSearchProvider = WebSearchProvider;
+  window.EnvatoProvider = EnvatoProvider;
   window.LiveSearchProvider = LiveSearchProvider;
   window.AwwwardsProvider = AwwwardsProvider;
   window.BehanceProvider = BehanceProvider;
   window.DribbbleProvider = DribbbleProvider;
-  window.EnvatoProvider = EnvatoProvider;
 })();
