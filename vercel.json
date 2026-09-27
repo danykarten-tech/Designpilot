@@ -1,3 +1,26 @@
 {
-  "cleanUrls": true
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/inspiration/search.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "{index.html,style.css,app.js,js/**,*.png,*.jpg,*.svg,*.ico}",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/inspiration/search",
+      "dest": "/api/inspiration/search.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }

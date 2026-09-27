@@ -358,11 +358,15 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`==================================================`);
-  console.log(`DesignPilot Server running at http://localhost:${PORT}`);
-  console.log(`API Search Endpoint: http://localhost:${PORT}/api/inspiration/search`);
-  console.log(`ENVATO_API_TOKEN status: ${process.env.ENVATO_API_TOKEN ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
-  console.log(`USE_DEMO_INSPIRATION switch: ${process.env.USE_DEMO_INSPIRATION || 'false'}`);
-  console.log(`==================================================`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`==================================================`);
+    console.log(`DesignPilot Server running at http://localhost:${PORT}`);
+    console.log(`API Search Endpoint: http://localhost:${PORT}/api/inspiration/search`);
+    console.log(`ENVATO_API_TOKEN status: ${process.env.ENVATO_API_TOKEN ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
+    console.log(`USE_DEMO_INSPIRATION switch: ${process.env.USE_DEMO_INSPIRATION || 'false'}`);
+    console.log(`==================================================`);
+  });
+}
+
+module.exports = server;
