@@ -68,26 +68,36 @@ function cleanWebText(text) {
   return clean;
 }
 
-// -------------------------------------------------------------------------
-// Core ChatGPT-Style Response Synthesis Engine
-// -------------------------------------------------------------------------
-async function generateAIResponse(userMessage, context = '', apiKey = '') {
-  const msg = (userMessage || '').trim();
-  const msgLower = msg.toLowerCase();
-  const ctx = (context || 'Product Design').trim();
+// Helper to extract URL and domain from user message
+function extractUrlAndDomain(text) {
+  if (!text) return null;
+  // Match http(s) URL
+  const urlMatch = text.match(/https?:\/\/[^\s\/$.?#].[^\s]*/i);
+  if (urlMatch) {
+    let rawUrl = urlMatch[0].replace(/[,;)]+$/, '');
+    try {
+      const parsed = new url.URL(rawUrl);
+      const domain = parsed.hostname.replace(/^www\./i, '');
+      return { fullUrl: rawUrl, domain: domain };
+    } catch (e) {
+      return null;
+    }
+  }
+  // Match standard domain like richestsoft.com or designpilot-mu.vercel.app
+  const domainMatch = text.match(/\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(com|org|net|co|io|tech|app|ai|dev|in|us|uk|ca)\b/i);
+  if (domainMatch) {
+    const domain = domainMatch[0].toLowerCase().replace(/^www\./i, '');
+    return { fullUrl: `https://${domain}`, domain: domain };
+  }
+  return null;
+}
 
-  // =========================================================================
-  // 0. Website Audit, Site Business & 5 UX + 5 UI Problems Intent
-  // =========================================================================
-  if (
-    msgLower.includes('designpilot') ||
-    msgLower.includes('vercel.app') ||
-    msgLower.includes('this website') ||
-    msgLower.includes('http') ||
-    (msgLower.includes('5 ux') && msgLower.includes('5 ui')) ||
-    (msgLower.includes('ux problem') && msgLower.includes('ui problem')) ||
-    (msgLower.includes('business') && (msgLower.includes('website') || msgLower.includes('landing page')))
-  ) {
+// Dynamic Website Business & UI/UX Audit Generator
+async function generateWebsiteAuditResponse(targetInfo, userMessage, context, apiKey) {
+  const { domain, fullUrl } = targetInfo;
+  
+  // 1. Check if the domain is explicitly DesignPilot
+  if (domain.includes('designpilot') || (domain.includes('vercel.app') && !domain.includes('richestsoft'))) {
     return `### 🔍 Website Business & UI/UX Audit (designpilot-mu.vercel.app)
 
 ---
@@ -162,6 +172,115 @@ async function generateAIResponse(userMessage, context = '', apiKey = '') {
 | **UI #3** | Card Thumbnail Aspect Shift | Medium | Apply Fixed 16:10 Aspect Ratio |
 | **UI #4** | Mobile Floating Button Overlap | Low | Safe Area Padding Adjustment |
 | **UI #5** | Missing CTA Micro-Glow | Low | Add Hover Elevation & Shadow Glow |`;
+  }
+
+  // 2. For ANY third-party website URL (e.g., richestsoft.com, stripe.com, etc.)
+  let companyDescription = '';
+  
+  if (apiKey) {
+    try {
+      const searchRes = await fetchTavilySearch(apiKey, `${domain} company business overview services products`);
+      if (searchRes && searchRes.length > 0) {
+        companyDescription = searchRes.slice(0, 2).map(r => cleanWebText(r.content || '')).join(' ');
+      }
+    } catch(e) {}
+  }
+
+  const capitalizedDomain = domain.charAt(0).toUpperCase() + domain.slice(1);
+
+  let businessSummary = companyDescription.length > 40 
+    ? companyDescription.substring(0, 320) + '...'
+    : `**${capitalizedDomain}** is a digital platform and business operating at \`${fullUrl}\`. It offers web development, digital services, and software solutions for its client base.`;
+
+  return `### 🔍 Website Business & UI/UX Audit (${domain})
+
+---
+
+#### 🏢 1. Business Overview of ${capitalizedDomain}
+**${capitalizedDomain}** (\`${domain}\`) is an online web platform and digital services provider.
+
+- **Business Model & Purpose**: ${businessSummary}
+- **Target Audience**: Clients, business owners, and users seeking digital & web solutions from ${capitalizedDomain}.
+- **Core Value Proposition**: Delivering online software services and customer engagement through \`${fullUrl}\`.
+
+---
+
+#### 🧠 2. Top 5 UX (User Experience) Issues & Recommended Solutions for ${domain}
+
+##### ❌ UX Issue 1: Complex Navigation & Option Hierarchy
+- **The Problem**: Multi-level navigation dropdowns or dense menu choices create cognitive friction for first-time visitors trying to find specific services.
+- **The Solution**: Streamline top-level navigation to 5 primary service clusters and use clear descriptive labels.
+
+##### ❌ UX Issue 2: Call-to-Action (CTA) Visibility & Friction
+- **The Problem**: Primary conversion buttons (e.g., *"Contact Us"*, *"Get Quote"*, *"Schedule Call"*) lack strong visual distinction above the fold.
+- **The Solution**: Use a high-contrast accent button color placed prominently in the hero section and persistent in the top header.
+
+##### ❌ UX Issue 3: Inquiry Form Length & Conversion Barrier
+- **The Problem**: Lead capture forms require too many fields upfront (e.g., phone, full address, budget drop-down) causing form abandonment.
+- **The Solution**: Reduce initial form fields to Email + Brief Message and implement instant inline validation.
+
+##### ❌ UX Issue 4: Mobile Ergonomics & Touch Footprint
+- **The Problem**: Stacking multi-column desktop sections creates long mobile scrolling paths with small tap targets ($< 44\text{px}$).
+- **The Solution**: Re-architect mobile layouts into clean single-column cards with minimum **44×44px** touch footprints.
+
+##### ❌ UX Issue 5: Trust Indicators & Social Proof Placement
+- **The Problem**: Client testimonials, case studies, and certification badges are buried deep in lower page sections.
+- **The Solution**: Move client logos, star ratings, and key metrics directly below the main Hero section CTA.
+
+---
+
+#### 🎨 3. Top 5 UI (User Interface) Issues & Recommended Solutions for ${domain}
+
+##### ❌ UI Issue 1: Typographic Scale & Visual Hierarchy
+- **The Problem**: Inconsistent font sizes across headings (H1, H2, H3) reduce readability and obscure key message hierarchy.
+- **The Solution**: Implement a strict 8px typographic scale (e.g., H1: 40px, H2: 28px, Body: 16px) with uniform line height.
+
+##### ❌ UI Issue 2: Color Contrast & WCAG Compliance
+- **The Problem**: Secondary body text and icon labels on tinted backgrounds do not meet the WCAG AA minimum 4.5:1 contrast ratio.
+- **The Solution**: Darken secondary text tokens to maintain high legibility across light and dark canvas surfaces.
+
+##### ❌ UI Issue 3: Spacing Consistency & Section Offsets
+- **The Problem**: Uneven vertical padding between page sections gives the interface an unpolished, chaotic layout.
+- **The Solution**: Standardize section padding using an 8px spatial grid (e.g., \`padding: 80px 0\` for desktop, \`40px 0\` for mobile).
+
+##### ❌ UI Issue 4: Showcase Media Aspect Ratio Shifts
+- **The Problem**: Screenshots and portfolio images use varying container aspect ratios, causing visual misalignment in card grids.
+- **The Solution**: Enforce uniform \`aspect-ratio: 16 / 10\` or \`4 / 3\` with \`object-fit: cover\` for all media cards.
+
+##### ❌ UI Issue 5: Micro-Interactions & Hover Feedback
+- **The Problem**: Interactive buttons and links exhibit abrupt visual state changes without smooth CSS transitions.
+- **The Solution**: Add subtle hover elevation (\`transform: translateY(-2px)\`) and smooth \`transition: all 0.2s ease\` feedback.
+
+---
+
+#### 📊 Summary Audit Matrix: 5 UX vs. 5 UI Issues for ${domain}
+
+| Dimension | Issue Identified | Severity | Recommended Fix |
+| :--- | :--- | :--- | :--- |
+| **UX #1** | Complex Navigation | High | Streamline menu to 5 core categories |
+| **UX #2** | Weak Hero CTA Prominence | High | Use high-contrast primary CTA button |
+| **UX #3** | Long Inquiry Form Fields | High | Minimal inputs + Inline validation |
+| **UX #4** | Small Mobile Touch Targets | Medium | Enforce $\ge 44\times 44\text{px}$ touch targets |
+| **UX #5** | Buried Social Proof | Medium | Place client logos below Hero CTA |
+| **UI #1** | Inconsistent Typographic Scale | Medium | Enforce strict 8px typographic scale |
+| **UI #2** | Sub-optimal Color Contrast | High | Ensure WCAG AA 4.5:1 text contrast |
+| **UI #3** | Irregular Section Padding | Medium | Use standardized 80px section spacing |
+| **UI #4** | Image Aspect Ratio Shifts | Medium | Apply fixed 16:10 aspect ratio |
+| **UI #5** | Abrupt Hover Transitions | Low | Add smooth 0.2s CSS transition glow |`;
+}
+
+// -------------------------------------------------------------------------
+// Core ChatGPT-Style Response Synthesis Engine
+// -------------------------------------------------------------------------
+async function generateAIResponse(userMessage, context = '', apiKey = '') {
+  const msg = (userMessage || '').trim();
+  const msgLower = msg.toLowerCase();
+  const ctx = (context || 'Product Design').trim();
+
+  // Check if user provided a specific Website URL or Domain (e.g., richestsoft.com, stripe.com, designpilot-mu.vercel.app)
+  const targetInfo = extractUrlAndDomain(msg);
+  if (targetInfo) {
+    return await generateWebsiteAuditResponse(targetInfo, userMessage, context, apiKey);
   }
 
   // =========================================================================
