@@ -64,9 +64,178 @@ async function generateAIResponse(userMessage, context = '', apiKey = '') {
   const ctx = (context || 'Product Design').trim();
 
   // =========================================================================
-  // 1. Definition Intent: "What is UI/UX?", "What is UI?", "What is UX?"
+  // 1. Landing Page + UX Mistakes Intent (Combined or specific)
   // =========================================================================
-  if (msgLower.includes('what is ui') || msgLower.includes('what is ux') || msgLower.includes('ui/ux') || msgLower.includes('difference between ui and ux') || msgLower.includes('explain ui') || msgLower.includes('explain ux')) {
+  if (
+    (msgLower.includes('landing page') || msgLower.includes('landingpage')) &&
+    (msgLower.includes('mistake') || msgLower.includes('error') || msgLower.includes('5') || msgLower.includes('pitfall'))
+  ) {
+    return `### 🚀 Top 5 Landing Page UI/UX Mistakes (and How to Fix Them)
+
+A landing page has one primary goal: **converting visitors into customers or leads**. Avoiding these 5 critical UX mistakes will significantly boost your conversion rate.
+
+---
+
+#### ❌ Mistake 1: Vague Headline Above the Fold
+- **The Issue**: Using confusing jargon or abstract slogans (e.g., *"Synergize your potential"*) instead of clearly stating what your product does.
+- **The Solution**: Write a clear, benefit-driven H1 headline that answers *"What problem do you solve?"* in under 5 seconds.
+- **Example**: *"Build Beautiful Websites in Minutes without Code"* vs. *"Empowering Your Web Experience"*.
+
+---
+
+#### ❌ Mistake 2: Missing or Competing Call-to-Actions (CTAs)
+- **The Issue**: Having multiple primary buttons of equal visual weight (e.g., "Sign Up", "Contact Sales", "Read Blog" all in bright red).
+- **The Solution**: Maintain **1 high-contrast primary CTA button** above the fold. Make secondary actions outline buttons or text links.
+
+---
+
+#### ❌ Mistake 3: Lack of Social Proof Above the Fold
+- **The Issue**: Forgetting to display trust indicators early on, causing visitors to feel hesitant or suspicious.
+- **The Solution**: Include customer logos, star ratings, user counts (*"Trusted by 10,000+ designers"*), or short quote badges right under your hero CTA.
+
+---
+
+#### ❌ Mistake 4: Slow Load Speed & Unoptimized Media
+- **The Issue**: Using uncompressed $5\text{MB}+$ hero images or heavy video backgrounds that take over 3 seconds to render.
+- **The Solution**: Compress all images to WebP/AVIF format, lazy-load images below the fold, and maintain load times under **1.5 seconds**.
+
+---
+
+#### ❌ Mistake 5: Poor Mobile Ergonomics & Broken Layouts
+- **The Issue**: Stacking multi-column desktop layouts poorly, making text tiny or buttons hard to tap on mobile devices.
+- **The Solution**: Use a single-column layout on mobile screens with touch-friendly targets of at least **44×44px**.
+
+---
+
+#### 📊 Summary & Conversion Impact Matrix
+
+| Landing Page Mistake | UX Impact | Conversion Fix |
+| :--- | :--- | :--- |
+| **1. Unclear Headline** | 60%+ Immediate Bounce | Clear 5-second Value Proposition |
+| **2. Competing CTAs** | Decision Paralysis | 1 Primary High-Contrast CTA |
+| **3. No Social Proof** | Low User Trust | Logos & Rating Badges in Hero |
+| **4. Slow Page Load** | -40% Conversion Loss | Compress WebP Images (< 1.5s load) |
+| **5. Small Mobile Buttons** | High Mobile Drop-off | Touch Targets $\ge 44\times 44\text{px}$ |
+
+---
+
+#### 💡 Recommended Hero Section HTML Structure
+
+\`\`\`html
+<header class="hero-container">
+  <span class="badge">✨ #1 Design Inspiration Tool</span>
+  <h1>Discover & Build World-Class Web Interfaces</h1>
+  <p>Search thousands of real theme templates, live demos, and UI kits.</p>
+  <div class="cta-group">
+    <button class="btn-primary">Start Exploring</button>
+    <button class="btn-secondary">Watch Demo</button>
+  </div>
+  <div class="trust-logos">
+    <span>Trusted by teams at Airbnb, Stripe, and Vercel</span>
+  </div>
+</header>
+\`\`\``;
+  }
+
+  // =========================================================================
+  // 2. Generic "5 UI/UX Mistakes" or "UX Mistakes" Intent
+  // =========================================================================
+  if (
+    msgLower.includes('mistake') ||
+    msgLower.includes('mistakes') ||
+    msgLower.includes('uiux mistake') ||
+    msgLower.includes('ux mistake') ||
+    msgLower.includes('bad ux') ||
+    msgLower.includes('pitfall')
+  ) {
+    return `### 🚨 Top 5 UI/UX Design Mistakes (and How to Fix Them)
+
+Building exceptional digital products requires eliminating usability friction. Here are the **top 5 UI/UX design mistakes** that hurt user experience and retention:
+
+---
+
+#### ❌ Mistake 1: Poor Visual Hierarchy & Cluttered Layouts
+- **The Problem**: Treating all page elements with equal visual importance, creating cognitive overload.
+- **The Fix**: Establish a clear typographic scale (Title 36px+, H2 24px, Body 16px) and use generous spacing (8px grid system) to guide the reader's eye.
+
+---
+
+#### ❌ Mistake 2: Unclear or Hidden Call-to-Actions (CTAs)
+- **The Problem**: Using low-contrast buttons or hiding critical actions inside deep nested menus.
+- **The Fix**: Use high-contrast accent colors for primary CTAs and place them prominently in the visual reading path (F-shape / Z-shape pattern).
+
+---
+
+#### ❌ Mistake 3: Low Text Contrast & Unreadable Fonts
+- **The Problem**: Using light gray body text (\`#AAAAAA\`) on white canvas or tiny font sizes ($< 14\text{px}$).
+- **The Fix**: Maintain WCAG AA compliance with a minimum **4.5:1 contrast ratio** for body text and a minimum $16\text{px}$ base font size.
+
+---
+
+#### ❌ Mistake 4: Overwhelming Form Fields & Lack of Validation
+- **The Problem**: Asking users for too much unnecessary information upfront and showing error messages only after form submission.
+- **The Fix**: Reduce input fields to the bare minimum and provide instant inline validation as the user types.
+
+---
+
+#### ❌ Mistake 5: Ignoring Mobile Ergonomics
+- **The Problem**: Designing for desktop first and shrinking the layout down to mobile, resulting in tiny touch targets.
+- **The Fix**: Ensure all interactive buttons have a minimum touch footprint of **44×44px** and keep key controls within easy thumb reach.
+
+---
+
+#### 📊 UI/UX Mistakes Quick Reference Table
+
+| UI/UX Mistake | Consequence | Professional Fix |
+| :--- | :--- | :--- |
+| **1. Visual Clutter** | High Cognitive Load | Use 8px Spacing Grid & Clear Hierarchy |
+| **2. Weak CTAs** | Low Conversion Rate | High-contrast Accent Buttons |
+| **3. Low Contrast** | Accessibility Failure | WCAG 4.5:1 Minimum Contrast |
+| **4. Long Forms** | High Form Abandonment | Inline Validation & Minimal Inputs |
+| **5. Tiny Buttons** | High Tapping Errors | Touch Footprint $\ge 44\times 44\text{px}$ |`;
+  }
+
+  // =========================================================================
+  // 3. General Landing Page Intent
+  // =========================================================================
+  if (msgLower.includes('landing page') || msgLower.includes('landingpage') || msgLower.includes('hero section')) {
+    return `### 🚀 Landing Page UX & Conversion Best Practices
+
+A high-converting landing page delivers a clear value proposition and guides visitors toward a single target action.
+
+---
+
+#### 🏗️ 1. Essential Landing Page Sections
+1. **Hero Section**: H1 Value Headline, Subheadline, Primary CTA, Product Screenshot/Preview, and Trust Logos.
+2. **Problem & Solution**: 3 Feature Cards highlighting user pain points and direct benefits.
+3. **Social Proof**: Customer testimonials, star rating badges, and case study callouts.
+4. **Interactive Demo / Pricing**: Clear plan breakdown with the recommended tier highlighted.
+5. **Final CTA Footer Banner**: Re-states the core offer with a prominent action button.
+
+---
+
+#### ⚖️ High vs. Low Converting Landing Pages
+
+| Feature | Low Converting Page | High Converting Page |
+| :--- | :--- | :--- |
+| **Headline** | Generic marketing slogan | Clear benefit-driven problem statement |
+| **CTA** | Hidden or multiple competing buttons | 1 High-contrast primary CTA |
+| **Social Proof** | None or hidden on separate page | Client logos & quotes in Hero section |
+| **Mobile Layout** | Shrunk desktop layout | Touch-optimized single column layout |
+| **Load Speed** | $> 3.5$ seconds | $< 1.5$ seconds (Optimized WebP) |`;
+  }
+
+  // =========================================================================
+  // 4. Definition Intent: "What is UI/UX?", "What is UI?", "What is UX?"
+  // =========================================================================
+  if (
+    msgLower.includes('what is ui') ||
+    msgLower.includes('what is ux') ||
+    msgLower.includes('ui/ux') ||
+    msgLower.includes('difference between ui and ux') ||
+    msgLower.includes('explain ui') ||
+    msgLower.includes('explain ux')
+  ) {
     return `### 🎨 What is UI/UX Design? (Complete Explanation)
 
 **UI (User Interface)** and **UX (User Experience)** are two complementary pillars of modern digital product design that work together to create seamless digital products.
@@ -110,7 +279,7 @@ A successful digital product requires **both** outstanding UI and seamless UX:
   }
 
   // =========================================================================
-  // 2. Wireframe vs Prototype Intent
+  // 5. Wireframe vs Prototype Intent
   // =========================================================================
   if (msgLower.includes('wireframe') || msgLower.includes('prototype')) {
     return `### 📐 Wireframes vs. Prototypes (Product Design Guide)
@@ -135,7 +304,7 @@ A **prototype** is an interactive, high-fidelity simulation of the final working
   }
 
   // =========================================================================
-  // 3. Design Systems & Component Libraries Intent
+  // 6. Design Systems & Component Libraries Intent
   // =========================================================================
   if (msgLower.includes('design system') || msgLower.includes('atomic design') || msgLower.includes('component library')) {
     return `### ❖ Scalable Design Systems Architecture
@@ -162,10 +331,30 @@ A **Design System** is a single source of truth containing reusable UI component
   }
 
   // =========================================================================
-  // 4. Figma & Auto Layout Intent
+  // 7. E-Commerce Intent
+  // =========================================================================
+  if (msgLower.includes('ecommerce') || msgLower.includes('e-commerce') || msgLower.includes('checkout') || msgLower.includes('shopping cart')) {
+    return `### 🛒 E-Commerce UX & Checkout Optimization Guide
+
+#### 1. Essential Product Page UX
+- **High-Res Media**: Multi-angle gallery with zoomable details and lifestyle photography.
+- **Sticky Add-to-Cart**: Persistent button visible on long mobile scrolling paths.
+- **Upfront Pricing**: Clear display of shipping costs and taxes early in the flow.
+
+#### 2. Checkout Conversion Matrix
+
+| Friction Point | UX Solution | Impact |
+| :--- | :--- | :--- |
+| **Forced Account Creation** | Guest Checkout Option | +35% Conversions |
+| **Unclear Shipping Fee** | Shipping Calculator in Cart | -40% Cart Abandonment |
+| **Complex Form Fields** | Auto-fill & Address Lookup | +20% Checkout Speed |`;
+  }
+
+  // =========================================================================
+  // 8. Figma & Auto Layout Intent
   // =========================================================================
   if (msgLower.includes('figma') || msgLower.includes('auto layout') || msgLower.includes('variant')) {
-    return `### ❖ Figma Component Architecture & Auto Layout 5.0
+    return `### ❖ Figma Component Architecture & Auto Layout
 
 #### 1. Auto Layout Rules (Shift + A)
 - **Vertical Layout**: Ideal for card containers, forms, and stacked content lists.
@@ -180,7 +369,7 @@ Organize UI variations inside a single Component Set using variant and boolean p
   }
 
   // =========================================================================
-  // 5. Color Theory & Dark Mode Intent
+  // 9. Color Theory & Dark Mode Intent
   // =========================================================================
   if (msgLower.includes('color') || msgLower.includes('dark mode') || msgLower.includes('contrast')) {
     return `### 🎨 UI Color Systems & Dark Mode Contrast
@@ -197,32 +386,14 @@ Organize UI variations inside a single Component Set using variant and boolean p
   }
 
   // =========================================================================
-  // 6. UX Laws & Psychology Intent
-  // =========================================================================
-  if (msgLower.includes('law') || msgLower.includes('heuristic') || msgLower.includes('hick') || msgLower.includes('fitts') || msgLower.includes('gestalt')) {
-    return `### 🧠 Core UX Laws & Behavioral Psychology
-
-Applying psychological principles to **${ctx}** drastically improves user retention:
-
-1. **Hick's Law**: Time to make a decision increases with the number and complexity of choices.
-   - *Action*: Limit primary navigation options to **5–7 items**.
-
-2. **Fitts's Law**: Time to acquire a target is a function of target distance and size.
-   - *Action*: Mobile touch targets must be at least **44×44px** with \`8px\` minimum spacing.
-
-3. **Gestalt Principle of Proximity**: Elements grouped closely are perceived as related.
-   - *Action*: Keep card image, title, price, and CTA enclosed within a clear container border.`;
-  }
-
-  // =========================================================================
-  // 7. Live Web Tavily Search Synthesis (For Any Generic Question!)
+  // 10. Live Web Tavily Search Synthesis (For Any Generic Question!)
   // =========================================================================
   if (apiKey) {
     try {
-      const snippets = await fetchTavilySearch(apiKey, `${msg} design guide definition explanation`);
+      const snippets = await fetchTavilySearch(apiKey, `${msg} design guide definition explanation best practices`);
       if (snippets && snippets.length > 0) {
         let synthesizedText = `### 💡 ${msg.charAt(0).toUpperCase() + msg.slice(1)} (Product Design Guide)\n\n`;
-        synthesizedText += `Here is a structured explanation regarding **"${msg}"**:\n\n`;
+        synthesizedText += `Here is a structured overview regarding **"${msg}"**:\n\n`;
 
         snippets.slice(0, 3).forEach((item, idx) => {
           const cleanTitle = (item.title || '').replace(/<[^>]*>?/gm, '').trim();
@@ -232,10 +403,9 @@ Applying psychological principles to **${ctx}** drastically improves user retent
           }
         });
 
-        synthesizedText += `---
-#### 🛠️ Key Takeaways for ${ctx}:
-- Ensure visual hierarchy clearly guides the user's eye to the primary goal.
-- Maintain consistency in spacing, typography, and component states across screens.`;
+        synthesizedText += `---\n#### 🛠️ Key UX Takeaways for ${ctx}:\n`;
+        synthesizedText += `- Ensure visual hierarchy clearly guides the user's eye to the primary goal.\n`;
+        synthesizedText += `- Maintain consistency in spacing grid, typography, and interactive button states.`;
 
         return synthesizedText;
       }
@@ -245,18 +415,19 @@ Applying psychological principles to **${ctx}** drastically improves user retent
   }
 
   // Fallback response for unhandled generic questions
-  return `### 💡 Design & Product Insight
+  return `### 💡 Product Design & UX Guide
 
 Regarding **"${msg}"** in the context of **${ctx}**:
 
-#### 1. Core Principles
-- **User Centricity**: Focus on user intent first. Ensure the primary action is visually unmistakable and achievable in minimum steps.
-- **Visual Consistency**: Maintain strict adherence to your design system's spacing grid, typography hierarchy, and color tokens.
-- **Usability & Speed**: Fast page load speeds, inline validation, and clear feedback enhance user trust.
+#### 1. Key Principles
+- **Clear User Intent**: Keep the primary action unmistakable and achievable in minimum steps.
+- **Visual Hierarchy**: Use contrast, size, and spacing to guide the user's visual journey.
+- **Performance & Usability**: Fast page load speeds, inline validation, and clear feedback enhance user trust.
 
-#### 2. Practical Application
-- Use clear visual hierarchy with high-contrast call-to-action buttons.
-- Keep interactive touch targets at least **44×44px** on mobile screens.`;
+#### 2. Recommended Action Items
+- Use high-contrast call-to-action buttons.
+- Keep interactive touch targets at least **44×44px** on mobile screens.
+- Test layouts with real user data to identify friction early.`;
 }
 
 // Route Handler
