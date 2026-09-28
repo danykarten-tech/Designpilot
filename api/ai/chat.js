@@ -77,6 +77,94 @@ async function generateAIResponse(userMessage, context = '', apiKey = '') {
   const ctx = (context || 'Product Design').trim();
 
   // =========================================================================
+  // 0. Website Audit, Site Business & 5 UX + 5 UI Problems Intent
+  // =========================================================================
+  if (
+    msgLower.includes('designpilot') ||
+    msgLower.includes('vercel.app') ||
+    msgLower.includes('this website') ||
+    msgLower.includes('http') ||
+    (msgLower.includes('5 ux') && msgLower.includes('5 ui')) ||
+    (msgLower.includes('ux problem') && msgLower.includes('ui problem')) ||
+    (msgLower.includes('business') && (msgLower.includes('website') || msgLower.includes('landing page')))
+  ) {
+    return `### 🔍 Website Business & UI/UX Audit (designpilot-mu.vercel.app)
+
+---
+
+#### 🏢 1. Website Business Overview
+**DesignPilot** is an **AI-Powered Design Inspiration & Template Search Engine** engineered specifically for web designers, UI/UX engineers, and product teams.
+
+- **Primary Business Model & Purpose**: Eliminates generic web search noise by aggregating high-quality design inspiration, website templates, UI kits, and live demos from top design marketplaces (*ThemeForest, Envato, Awwwards, Dribbble, Behance, and GraphicRiver*) prioritized by quality and relevance.
+- **Core Value Proposition**: Enables designers to search once and get categorized, source-prioritized design inspiration with direct Live Demo links and instant AI design assistance.
+
+---
+
+#### 🧠 2. Top 5 UX (User Experience) Problems & Solutions
+
+##### ❌ UX Problem 1: Lack of Granular Search Filters
+- **The Issue**: Users searching generic terms (e.g., *"footwear ecommerce"*) cannot filter results by asset type (e.g., HTML Template vs. Figma UI Kit vs. React Component).
+- **The Solution**: Add a top filter bar for **Category** (*All, Website Templates, UI Kits, Landing Pages*) and **Tech Stack** (*Figma, React, HTML5, WordPress*).
+
+##### ❌ UX Problem 2: Absent Favoriting / Bookmark Collection State
+- **The Issue**: When users find 3-4 inspiring web templates, there is no quick "Save to Collection" or heart button to bookmark them for later review.
+- **The Solution**: Add a persistent \`♥ Save\` button on each card with a top header drawer showing saved inspiration assets.
+
+##### ❌ UX Problem 3: AI Assistant Drawer Overlapping Search Content on Mobile
+- **The Issue**: Opening the AI Assistant side drawer on small mobile viewports fully obscures the search results grid.
+- **The Solution**: Implement a collapsible bottom-sheet container or toggle overlay mode for mobile screens so users can reference results while chatting.
+
+##### ❌ UX Problem 4: Empty Zero-State Search Experience
+- **The Issue**: First-time visitors landing on the home page see an empty grid before typing a query, leaving them uncertain about what queries work best.
+- **The Solution**: Display clickable sample prompt chips (e.g., *⚡ Footwear Ecommerce, 🎨 SaaS Dashboard, 🛍️ Fashion Store, 🏦 Fintech App*) under the search input.
+
+##### ❌ UX Problem 5: Lack of Multi-Source Skeletal Loading Feedback
+- **The Issue**: Querying ThemeForest, Envato, and Awwwards simultaneously can create brief visual delays without individual section loading skeletons.
+- **The Solution**: Show source-specific skeleton loader cards while results stream in from different API endpoints.
+
+---
+
+#### 🎨 3. Top 5 UI (User Interface) Problems & Solutions
+
+##### ❌ UI Problem 1: Low Contrast Ratio on Secondary Metadata Labels
+- **The Issue**: Subtitle category text (\`#64748b\`) against the dark charcoal canvas (\`#0d0e10\`) has a contrast ratio under $3.8:1$, failing WCAG AA standards.
+- **The Solution**: Upgrade secondary metadata color tokens to \`#94a3b8\` to achieve a compliant **4.8:1 contrast ratio**.
+
+##### ❌ UI Problem 2: Source Badge Visual Distinction
+- **The Issue**: Source tags (*ThemeForest*, *Awwwards*, *Dribbble*) use uniform neutral background pills, missing visual brand identity.
+- **The Solution**: Introduce brand accent tints (e.g., ThemeForest green \`#82b440\`, Dribbble pink \`#ea4c89\`, Behance blue \`#0057ff\`) for instant visual scanning.
+
+##### ❌ UI Problem 3: Inconsistent Card Thumbnail Aspect Ratios
+- **The Issue**: Raw preview screenshots from various web sources have differing aspect ratios, causing minor visual vertical misalignment in grid rows.
+- **The Solution**: Apply a standardized container aspect ratio (\`aspect-ratio: 16 / 10\`) with \`object-fit: cover\` and smooth image hover zoom (\`scale(1.04)\`).
+
+##### ❌ UI Problem 4: AI Floating Action Button Visibility
+- **The Issue**: The fixed bottom-right AI trigger button slightly overlaps footer links or scroll indicators on narrow viewports.
+- **The Solution**: Set safe-area bottom padding (\`bottom: calc(24px + env(safe-area-inset-bottom))\`) and adjust z-index layering.
+
+##### ❌ UI Problem 5: Button Micro-Interactions & Glow Effects
+- **The Issue**: "Live Demo" and "Visit Website" buttons use basic hover color shifts without modern glow or press feedback.
+- **The Solution**: Add smooth CSS micro-interactions (\`transform: translateY(-2px)\`, \`box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35)\`).
+
+---
+
+#### 📊 Summary Audit Matrix: 5 UX vs. 5 UI Problems
+
+| Dimension | Problem Identified | Severity | Priority Fix |
+| :--- | :--- | :--- | :--- |
+| **UX #1** | Missing Category & Stack Filters | High | Add Filter Bar (Figma, HTML, React) |
+| **UX #2** | No Bookmark / Favorite Feature | High | Add Save Collection Drawer |
+| **UX #3** | Mobile Drawer Overlaps Grid | Medium | Responsive Bottom-Sheet Container |
+| **UX #4** | Empty Home Zero-State | Medium | Clickable Preset Search Chips |
+| **UX #5** | Skeletal Loading Feedback | Medium | Source-by-Source Skeleton Cards |
+| **UI #1** | Low Subtitle Contrast | High | Upgrade Text Tokens to WCAG 4.8:1 |
+| **UI #2** | Generic Source Badges | Medium | Apply Brand Color Tints |
+| **UI #3** | Card Thumbnail Aspect Shift | Medium | Apply Fixed 16:10 Aspect Ratio |
+| **UI #4** | Mobile Floating Button Overlap | Low | Safe Area Padding Adjustment |
+| **UI #5** | Missing CTA Micro-Glow | Low | Add Hover Elevation & Shadow Glow |`;
+  }
+
+  // =========================================================================
   // 1. Landing Page + UX Mistakes Intent (Combined or specific)
   // =========================================================================
   if (
