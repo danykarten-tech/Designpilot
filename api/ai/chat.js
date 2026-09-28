@@ -284,178 +284,78 @@ async function generateAIResponse(userMessage, context = '', apiKey = '') {
   }
 
   // =========================================================================
-  // 1. Landing Page + UX Mistakes Intent (Combined or specific)
+  // 1. Junior UI/UX Design Feedback & Design Critique Intent
   // =========================================================================
   if (
-    (msgLower.includes('landing page') || msgLower.includes('landingpage')) &&
-    (msgLower.includes('mistake') || msgLower.includes('error') || msgLower.includes('5') || msgLower.includes('pitfall'))
+    msgLower.includes('feedback') ||
+    msgLower.includes('junior') ||
+    msgLower.includes('critique') ||
+    msgLower.includes('review work') ||
+    msgLower.includes('design review')
   ) {
-    return `### 🚀 Top 5 Landing Page UI/UX Mistakes (and How to Fix Them)
+    return `### 🎨 How to Provide Effective Design Feedback to a Junior UI/UX Designer
 
-A landing page has one primary goal: **converting visitors into customers or leads**. Avoiding these 5 critical UX mistakes will significantly boost your conversion rate.
-
----
-
-#### ❌ Mistake 1: Vague Headline Above the Fold
-- **The Issue**: Using confusing jargon or abstract slogans (e.g., *"Synergize your potential"*) instead of clearly stating what your product does.
-- **The Solution**: Write a clear, benefit-driven H1 headline that answers *"What problem do you solve?"* in under 5 seconds.
-- **Example**: *"Build Beautiful Websites in Minutes without Code"* vs. *"Empowering Your Web Experience"*.
+Giving constructive design feedback to junior designers balances **educational mentoring**, **usability standards**, and **actionable design critique**. Here is a structured framework for reviewing junior UI/UX work:
 
 ---
 
-#### ❌ Mistake 2: Missing or Competing Call-to-Actions (CTAs)
-- **The Issue**: Having multiple primary buttons of equal visual weight (e.g., "Sign Up", "Contact Sales", "Read Blog" all in bright red).
-- **The Solution**: Maintain **1 high-contrast primary CTA button** above the fold. Make secondary actions outline buttons or text links.
+#### 📋 1. The 4-Step Design Feedback Framework
+
+##### Step 1: Clarify User Intent & Business Goals First
+- **Before looking at visuals**: Ask the junior designer to explain the **problem statement**, **target persona**, and **user goal**.
+- **Question to ask**: *"What is the main task the user is trying to accomplish on this screen?"*
+
+##### Step 2: Evaluate Information Architecture & User Flow (UX Audit)
+- Check if the task flow is logical, frictionless, and requires minimum cognitive steps.
+- **Key UX Audit Criteria**:
+  - Is the primary Call-to-Action (CTA) visually obvious?
+  - Are error states, loading states, and empty states designed?
+  - Does the layout follow established UX patterns (F-pattern, Z-pattern)?
+
+##### Step 3: Audit Visual & Spatial Precision (UI Audit)
+- Review spatial grid alignment, typographic hierarchy, and token consistency.
+- **Key UI Audit Criteria**:
+  - **Spacing Grid**: Is an 8px / 4px spatial grid consistently applied across padding and margins?
+  - **Typography**: Are font sizes and line heights restricted to a defined type scale (Title, H1, H2, Body)?
+  - **Color Contrast**: Does body text meet WCAG AA contrast requirements ($\ge 4.5:1$)?
+
+##### Step 4: Frame Feedback as Actionable Questions, Not Direct Directives
+- **Instead of saying**: *"Change this button to blue and move it to the right."*
+- **Say**: *"How might a first-time user locate the primary action button if it shares the same gray color as secondary links?"*
 
 ---
 
-#### ❌ Mistake 3: Lack of Social Proof Above the Fold
-- **The Issue**: Forgetting to display trust indicators early on, causing visitors to feel hesitant or suspicious.
-- **The Solution**: Include customer logos, star ratings, user counts (*"Trusted by 10,000+ designers"*), or short quote badges right under your hero CTA.
+#### 📊 Junior UI/UX Design Feedback Checklist & Matrix
 
----
-
-#### ❌ Mistake 4: Slow Load Speed & Unoptimized Media
-- **The Issue**: Using uncompressed $5\text{MB}+$ hero images or heavy video backgrounds that take over 3 seconds to render.
-- **The Solution**: Compress all images to WebP/AVIF format, lazy-load images below the fold, and maintain load times under **1.5 seconds**.
-
----
-
-#### ❌ Mistake 5: Poor Mobile Ergonomics & Broken Layouts
-- **The Issue**: Stacking multi-column desktop layouts poorly, making text tiny or buttons hard to tap on mobile devices.
-- **The Solution**: Use a single-column layout on mobile screens with touch-friendly targets of at least **44×44px**.
-
----
-
-#### 📊 Summary & Conversion Impact Matrix
-
-| Landing Page Mistake | UX Impact | Conversion Fix |
+| Audit Area | What to Review | Constructive Feedback Example |
 | :--- | :--- | :--- |
-| **1. Unclear Headline** | 60%+ Immediate Bounce | Clear 5-second Value Proposition |
-| **2. Competing CTAs** | Decision Paralysis | 1 Primary High-Contrast CTA |
-| **3. No Social Proof** | Low User Trust | Logos & Rating Badges in Hero |
-| **4. Slow Page Load** | -40% Conversion Loss | Compress WebP Images (< 1.5s load) |
-| **5. Small Mobile Buttons** | High Mobile Drop-off | Touch Targets $\ge 44\times 44\text{px}$ |
+| **User Flow (UX)** | Task Completion Speed | *"Can we reduce this 4-step modal into a single inline form?"* |
+| **Visual Hierarchy (UI)** | Contrast & Scale | *"The section header and body text look similar in size. Let's increase header weight."* |
+| **Grid & Alignment** | 8px Spatial Grid | *"Check padding inside this card container—it varies between 12px and 22px."* |
+| **Edge Cases** | States & Edge Flows | *"What does this table look like when there are 0 items or when network fails?"* |
+| **Component Handoff** | Auto Layout & Tokens | *"Ensure Figma layers use Auto Layout (Shift+A) and named variants for developer handoff."* |
 
 ---
 
-#### 💡 Recommended Hero Section HTML Structure
-
-\`\`\`html
-<header class="hero-container">
-  <span class="badge">✨ #1 Design Inspiration Tool</span>
-  <h1>Discover & Build World-Class Web Interfaces</h1>
-  <p>Search thousands of real theme templates, live demos, and UI kits.</p>
-  <div class="cta-group">
-    <button class="btn-primary">Start Exploring</button>
-    <button class="btn-secondary">Watch Demo</button>
-  </div>
-  <div class="trust-logos">
-    <span>Trusted by teams at Airbnb, Stripe, and Vercel</span>
-  </div>
-</header>
-\`\`\``;
+#### 💡 5 Best Practices for Senior-to-Junior Feedback
+1. **Praise What Works First**: Highlight strong layout choices or visual craft before diving into fixes.
+2. **Focus on User Impact**: Explain *why* a design choice matters to the end user, not personal aesthetic preference.
+3. **Encourage Iteration**: Ask for 2–3 alternative layout explorations rather than dictating a single solution.
+4. **Inspect Figma Handoff**: Verify Auto Layout constraints, component properties, and design token naming.
+5. **Set Clear Follow-Up Expectations**: Agree on specific revisions to review in the next design sync.`;
   }
 
   // =========================================================================
-  // 2. Generic "5 UI/UX Mistakes" or "UX Mistakes" Intent
+  // 2. Strict Definition Intent: "What is UI/UX?", "Explain UI/UX" (NOT generic mention)
   // =========================================================================
-  if (
-    msgLower.includes('mistake') ||
-    msgLower.includes('mistakes') ||
-    msgLower.includes('uiux mistake') ||
-    msgLower.includes('ux mistake') ||
-    msgLower.includes('bad ux') ||
-    msgLower.includes('pitfall')
-  ) {
-    return `### 🚨 Top 5 UI/UX Design Mistakes (and How to Fix Them)
+  const isDefinitionQuery =
+    /^(what is|explain|define|definition of|difference between)\s+(ui\/ux|ui|ux)/i.test(msgLower) ||
+    msgLower === 'what is ui/ux' ||
+    msgLower === 'what is ui' ||
+    msgLower === 'what is ux' ||
+    msgLower === 'ui/ux definition';
 
-Building exceptional digital products requires eliminating usability friction. Here are the **top 5 UI/UX design mistakes** that hurt user experience and retention:
-
----
-
-#### ❌ Mistake 1: Poor Visual Hierarchy & Cluttered Layouts
-- **The Problem**: Treating all page elements with equal visual importance, creating cognitive overload.
-- **The Fix**: Establish a clear typographic scale (Title 36px+, H2 24px, Body 16px) and use generous spacing (8px grid system) to guide the reader's eye.
-
----
-
-#### ❌ Mistake 2: Unclear or Hidden Call-to-Actions (CTAs)
-- **The Problem**: Using low-contrast buttons or hiding critical actions inside deep nested menus.
-- **The Fix**: Use high-contrast accent colors for primary CTAs and place them prominently in the visual reading path (F-shape / Z-shape pattern).
-
----
-
-#### ❌ Mistake 3: Low Text Contrast & Unreadable Fonts
-- **The Problem**: Using light gray body text (\`#AAAAAA\`) on white canvas or tiny font sizes ($< 14\text{px}$).
-- **The Fix**: Maintain WCAG AA compliance with a minimum **4.5:1 contrast ratio** for body text and a minimum $16\text{px}$ base font size.
-
----
-
-#### ❌ Mistake 4: Overwhelming Form Fields & Lack of Validation
-- **The Problem**: Asking users for too much unnecessary information upfront and showing error messages only after form submission.
-- **The Fix**: Reduce input fields to the bare minimum and provide instant inline validation as the user types.
-
----
-
-#### ❌ Mistake 5: Ignoring Mobile Ergonomics
-- **The Problem**: Designing for desktop first and shrinking the layout down to mobile, resulting in tiny touch targets.
-- **The Fix**: Ensure all interactive buttons have a minimum touch footprint of **44×44px** and keep key controls within easy thumb reach.
-
----
-
-#### 📊 UI/UX Mistakes Quick Reference Table
-
-| UI/UX Mistake | Consequence | Professional Fix |
-| :--- | :--- | :--- |
-| **1. Visual Clutter** | High Cognitive Load | Use 8px Spacing Grid & Clear Hierarchy |
-| **2. Weak CTAs** | Low Conversion Rate | High-contrast Accent Buttons |
-| **3. Low Contrast** | Accessibility Failure | WCAG 4.5:1 Minimum Contrast |
-| **4. Long Forms** | High Form Abandonment | Inline Validation & Minimal Inputs |
-| **5. Tiny Buttons** | High Tapping Errors | Touch Footprint $\ge 44\times 44\text{px}$ |`;
-  }
-
-  // =========================================================================
-  // 3. General Landing Page Intent
-  // =========================================================================
-  if (msgLower.includes('landing page') || msgLower.includes('landingpage') || msgLower.includes('hero section')) {
-    return `### 🚀 Landing Page UX & Conversion Best Practices
-
-A high-converting landing page delivers a clear value proposition and guides visitors toward a single target action.
-
----
-
-#### 🏗️ 1. Essential Landing Page Sections
-1. **Hero Section**: H1 Value Headline, Subheadline, Primary CTA, Product Screenshot/Preview, and Trust Logos.
-2. **Problem & Solution**: 3 Feature Cards highlighting user pain points and direct benefits.
-3. **Social Proof**: Customer testimonials, star rating badges, and case study callouts.
-4. **Interactive Demo / Pricing**: Clear plan breakdown with the recommended tier highlighted.
-5. **Final CTA Footer Banner**: Re-states the core offer with a prominent action button.
-
----
-
-#### ⚖️ High vs. Low Converting Landing Pages
-
-| Feature | Low Converting Page | High Converting Page |
-| :--- | :--- | :--- |
-| **Headline** | Generic marketing slogan | Clear benefit-driven problem statement |
-| **CTA** | Hidden or multiple competing buttons | 1 High-contrast primary CTA |
-| **Social Proof** | None or hidden on separate page | Client logos & quotes in Hero section |
-| **Mobile Layout** | Shrunk desktop layout | Touch-optimized single column layout |
-| **Load Speed** | $> 3.5$ seconds | $< 1.5$ seconds (Optimized WebP) |`;
-  }
-
-  // =========================================================================
-  // 4. Definition Intent: "What is UI/UX?", "What is UI?", "What is UX?"
-  // =========================================================================
-  if (
-    msgLower.includes('what is ui') ||
-    msgLower.includes('what is ux') ||
-    msgLower.includes('ui/ux') ||
-    msgLower.includes('difference between ui and ux') ||
-    msgLower.includes('explain ui') ||
-    msgLower.includes('explain ux')
-  ) {
+  if (isDefinitionQuery) {
     return `### 🎨 What is UI/UX Design? (Complete Explanation)
 
 **UI (User Interface)** and **UX (User Experience)** are two complementary pillars of modern digital product design that work together to create seamless digital products.
