@@ -55,6 +55,19 @@ function fetchTavilySearch(apiKey, searchQuery) {
   });
 }
 
+// Helper to clean raw web scraped text from noise
+function cleanWebText(text) {
+  if (!text) return '';
+  let clean = text.replace(/<[^>]*>?/gm, ''); // Remove raw HTML tags
+  clean = clean.replace(/Image \d+:[^\.\n]*/gi, ''); // Remove Image captions like "Image 3: ..."
+  clean = clean.replace(/\[\.\.\.\]/g, ''); // Remove [...]
+  clean = clean.replace(/Click here[^\.\n]*/gi, '');
+  clean = clean.replace(/Subscribe to[^\.\n]*/gi, '');
+  clean = clean.replace(/Cookie Policy[^\.\n]*/gi, '');
+  clean = clean.replace(/\s+/g, ' ').trim();
+  return clean;
+}
+
 // -------------------------------------------------------------------------
 // Core ChatGPT-Style Response Synthesis Engine
 // -------------------------------------------------------------------------
@@ -386,7 +399,7 @@ Organize UI variations inside a single Component Set using variant and boolean p
   }
 
   // =========================================================================
-  // 10. Live Web Tavily Search Synthesis (For Any Generic Question!)
+  // 10. Live Web Tavily Search Synthesis (Cleaned & Formatted!)
   // =========================================================================
   if (apiKey) {
     try {
@@ -395,19 +408,23 @@ Organize UI variations inside a single Component Set using variant and boolean p
         let synthesizedText = `### 💡 ${msg.charAt(0).toUpperCase() + msg.slice(1)} (Product Design Guide)\n\n`;
         synthesizedText += `Here is a structured overview regarding **"${msg}"**:\n\n`;
 
-        snippets.slice(0, 3).forEach((item, idx) => {
-          const cleanTitle = (item.title || '').replace(/<[^>]*>?/gm, '').trim();
-          const cleanContent = (item.content || '').replace(/<[^>]*>?/gm, '').trim();
-          if (cleanTitle && cleanContent) {
-            synthesizedText += `#### ${idx + 1}. ${cleanTitle}\n${cleanContent}\n\n`;
+        let validCount = 0;
+        snippets.forEach((item) => {
+          if (validCount >= 3) return;
+          const cleanTitle = cleanWebText(item.title || '');
+          const cleanContent = cleanWebText(item.content || '');
+          if (cleanTitle && cleanContent && cleanContent.length > 40) {
+            validCount++;
+            synthesizedText += `#### ${validCount}. ${cleanTitle}\n${cleanContent}\n\n`;
           }
         });
 
-        synthesizedText += `---\n#### 🛠️ Key UX Takeaways for ${ctx}:\n`;
-        synthesizedText += `- Ensure visual hierarchy clearly guides the user's eye to the primary goal.\n`;
-        synthesizedText += `- Maintain consistency in spacing grid, typography, and interactive button states.`;
-
-        return synthesizedText;
+        if (validCount > 0) {
+          synthesizedText += `---\n#### 🛠️ Key UX Takeaways for ${ctx}:\n`;
+          synthesizedText += `- Ensure visual hierarchy clearly guides the user's eye to the primary goal.\n`;
+          synthesizedText += `- Maintain consistency in spacing grid, typography, and interactive button states.`;
+          return synthesizedText;
+        }
       }
     } catch (e) {
       // fallback if search fails
