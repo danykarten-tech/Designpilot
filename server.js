@@ -34,6 +34,7 @@ loadEnv();
 const PORT = process.env.PORT || 8080;
 const PUBLIC_DIR = path.join(__dirname);
 const searchHandler = require('./api/inspiration/search.js');
+const aiChatHandler = require('./api/ai/chat.js');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -54,6 +55,10 @@ const server = http.createServer((req, res) => {
 
   if (pathname === '/api/inspiration/search' && (req.method === 'POST' || req.method === 'GET')) {
     return searchHandler(req, res);
+  }
+
+  if (pathname === '/api/ai/chat' && (req.method === 'POST' || req.method === 'GET')) {
+    return aiChatHandler(req, res);
   }
 
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
