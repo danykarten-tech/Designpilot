@@ -1,167 +1,262 @@
 const https = require('https');
 const url = require('url');
 
-// Server-side AI response generator for DesignPilot AI Assistant
-function generateAIResponse(userMessage, context = '', history = []) {
+// -------------------------------------------------------------------------
+// Tavily Search Helper for Live Web Query Synthesis
+// -------------------------------------------------------------------------
+function fetchTavilySearch(apiKey, searchQuery) {
+  return new Promise((resolve) => {
+    if (!apiKey) return resolve(null);
+
+    const postData = JSON.stringify({
+      api_key: apiKey,
+      query: searchQuery,
+      search_depth: 'basic',
+      max_results: 5
+    });
+
+    const reqOptions = {
+      hostname: 'api.tavily.com',
+      port: 443,
+      path: '/search',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      timeout: 6000
+    };
+
+    const req = https.request(reqOptions, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const data = JSON.parse(body);
+            resolve(data.results || []);
+          } catch (e) {
+            resolve(null);
+          }
+        } else {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+
+    req.write(postData);
+    req.end();
+  });
+}
+
+// -------------------------------------------------------------------------
+// Core ChatGPT-Style Response Synthesis Engine
+// -------------------------------------------------------------------------
+async function generateAIResponse(userMessage, context = '', apiKey = '') {
   const msg = (userMessage || '').trim();
   const msgLower = msg.toLowerCase();
   const ctx = (context || 'Product Design').trim();
 
-  // 1. Comprehensive UX Heuristics & Laws
-  if (msgLower.includes('law') || msgLower.includes('heuristic') || msgLower.includes("hick") || msgLower.includes("fitts") || msgLower.includes("miller") || msgLower.includes("gestalt")) {
+  // =========================================================================
+  // 1. Definition Intent: "What is UI/UX?", "What is UI?", "What is UX?"
+  // =========================================================================
+  if (msgLower.includes('what is ui') || msgLower.includes('what is ux') || msgLower.includes('ui/ux') || msgLower.includes('difference between ui and ux') || msgLower.includes('explain ui') || msgLower.includes('explain ux')) {
+    return `### 🎨 What is UI/UX Design? (Complete Explanation)
+
+**UI (User Interface)** and **UX (User Experience)** are two complementary pillars of modern digital product design that work together to create seamless digital products.
+
+---
+
+#### 📱 1. What is UI (User Interface)?
+**UI** refers to the **visual and interactive touchpoints** of a digital application that users see and interact with directly on their screen.
+
+- **Core Focus**: Layout, colors, typography, buttons, iconography, spatial grid, visual hierarchy, and micro-animations.
+- **Goal**: Make the interface visually appealing, clean, accessible, and brand-aligned.
+- **Analogy**: If a digital product were a house, **UI is the interior design, wall paint, lighting fixtures, and furniture styling**.
+
+---
+
+#### 🧠 2. What is UX (User Experience)?
+**UX** refers to the **overall journey, feeling, and efficiency** a user has when interacting with a product or service from start to finish.
+
+- **Core Focus**: User research, information architecture, wireframing, user flows, task efficiency, cognitive load, and usability.
+- **Goal**: Make the product effortless, intuitive, and effective at solving the user's core problem.
+- **Analogy**: In a house, **UX is the architectural floor plan, room layout, plumbing, electrical wiring, and front door position**.
+
+---
+
+#### ⚖️ Key Differences: UI vs. UX
+
+| Dimension | UI Design (User Interface) | UX Design (User Experience) |
+| :--- | :--- | :--- |
+| **Primary Goal** | Visual beauty & visual interaction | Usability, task efficiency & problem solving |
+| **Core Element** | Visuals, colors, fonts, buttons, spacing | User flows, wireframes, research & testing |
+| **Design Stage** | High-fidelity styling & visual polish | Early research, wireframing & prototyping |
+| **Deliverables** | High-fidelity mockups, UI kits, style guides | Personas, user journeys, wireframes, flows |
+
+---
+
+#### 🤝 How UI and UX Work Together
+A successful digital product requires **both** outstanding UI and seamless UX:
+- **Good UX + Bad UI**: A fast and easy-to-use site that looks outdated or visually unappealing.
+- **Good UI + Bad UX**: A stunningly beautiful app that is confusing, slow, or frustrating to use.
+- **Good UI + Good UX**: A world-class product like Apple, Airbnb, or Stripe—intuitive, fast, and visually captivating.`;
+  }
+
+  // =========================================================================
+  // 2. Wireframe vs Prototype Intent
+  // =========================================================================
+  if (msgLower.includes('wireframe') || msgLower.includes('prototype')) {
+    return `### 📐 Wireframes vs. Prototypes (Product Design Guide)
+
+#### 1. What is a Wireframe?
+A **wireframe** is a low-fidelity visual guide that represents the skeletal framework of a digital product screen. Think of it as the **architectural blueprint**.
+- **Fidelity**: Low (grayscale boxes, simple typography, placeholder content).
+- **Focus**: Information architecture, content hierarchy, and element positioning.
+
+#### 2. What is a Prototype?
+A **prototype** is an interactive, high-fidelity simulation of the final working product.
+- **Fidelity**: High (real brand colors, editorial photography, interactive buttons).
+- **Focus**: Micro-interactions, user flow testing, and developer handoff.
+
+---
+
+| Feature | Wireframe | Prototype |
+| :--- | :--- | :--- |
+| **Fidelity** | Low (Grayscale B&W) | High (Real colors & UI) |
+| **Interactivity** | Static layout | Clickable & animated |
+| **Stage** | Discovery & Structuring | Usability Testing & Handoff |`;
+  }
+
+  // =========================================================================
+  // 3. Design Systems & Component Libraries Intent
+  // =========================================================================
+  if (msgLower.includes('design system') || msgLower.includes('atomic design') || msgLower.includes('component library')) {
+    return `### ❖ Scalable Design Systems Architecture
+
+A **Design System** is a single source of truth containing reusable UI components, brand guidelines, and design tokens that enable product teams to ship consistent digital products at speed.
+
+#### 1. Core Architecture (Atomic Design Framework)
+- **Atoms**: Fundamental UI building blocks (color tokens, font styles, icon vectors, primitive buttons).
+- **Molecules**: Combinations of atoms working together (search input with leading icon and button).
+- **Organisms**: Complex UI sections (navigation headers, product card grids, filter bars).
+- **Templates & Pages**: Full screen layouts constructed from organisms.
+
+#### 2. Design Tokens Example
+\`\`\`css
+/* CSS Variables for System Hand-off */
+:root {
+  --color-brand-primary: #6366f1;
+  --color-bg-dark: #0d0e10;
+  --color-bg-surface: #181a1f;
+  --spacing-grid-base: 8px;
+  --font-family-display: 'Inter', sans-serif;
+}
+\`\`\``;
+  }
+
+  // =========================================================================
+  // 4. Figma & Auto Layout Intent
+  // =========================================================================
+  if (msgLower.includes('figma') || msgLower.includes('auto layout') || msgLower.includes('variant')) {
+    return `### ❖ Figma Component Architecture & Auto Layout 5.0
+
+#### 1. Auto Layout Rules (Shift + A)
+- **Vertical Layout**: Ideal for card containers, forms, and stacked content lists.
+- **Horizontal Layout**: Ideal for navigation bars, tab bars, and button rows.
+- **Resizing Attributes**:
+  - \`Hug Contents\`: Container shrinks or grows dynamically to fit child elements.
+  - \`Fill Container\`: Child element stretches to occupy 100% of parent width.
+  - \`Fixed Width\`: Static manual pixel dimensions.
+
+#### 2. Component Variant Set
+Organize UI variations inside a single Component Set using variant and boolean properties (\`Size=Lg/Md/Sm\`, \`State=Default/Hover/Active/Disabled\`).`;
+  }
+
+  // =========================================================================
+  // 5. Color Theory & Dark Mode Intent
+  // =========================================================================
+  if (msgLower.includes('color') || msgLower.includes('dark mode') || msgLower.includes('contrast')) {
+    return `### 🎨 UI Color Systems & Dark Mode Contrast
+
+#### 1. The 60-30-10 Color Rule
+- **60% Dominant Canvas**: Deep charcoal background (\`#0D0E10\` / \`#121418\`).
+- **30% Secondary Surfaces**: Card containers, sidebars, and modals (\`#181A1F\` / \`#20242C\`).
+- **10% Accent Callout**: High-contrast brand accent (\`#6366f1\` / \`#818cf8\`).
+
+#### 2. WCAG Contrast Compliance
+- **Body Text**: Maintain minimum **4.5:1** contrast ratio against background.
+- **Large Display Titles ($\ge 18\text{pt}$)**: Maintain minimum **3:1** ratio.
+- Never use pure black (\`#000000\`) for dark mode canvases; use soft charcoal to prevent visual eye fatigue.`;
+  }
+
+  // =========================================================================
+  // 6. UX Laws & Psychology Intent
+  // =========================================================================
+  if (msgLower.includes('law') || msgLower.includes('heuristic') || msgLower.includes('hick') || msgLower.includes('fitts') || msgLower.includes('gestalt')) {
     return `### 🧠 Core UX Laws & Behavioral Psychology
 
-When designing interfaces for **${ctx}**, applying psychological UX principles dramatically improves user retention:
+Applying psychological principles to **${ctx}** drastically improves user retention:
 
-1. **Hick's Law (Decision Time)**: Time to make a decision increases with the number and complexity of choices.
-   - *Action*: Limit primary navigation items to **5–7 options** and use single clear CTAs on hero sections.
+1. **Hick's Law**: Time to make a decision increases with the number and complexity of choices.
+   - *Action*: Limit primary navigation options to **5–7 items**.
 
-2. **Fitts's Law (Target Size & Distance)**: Time to acquire a target is a function of the distance to and size of the target.
-   - *Action*: Mobile touch targets must be at least **44×44px** with minimum **8px spacing** between clickable icons.
+2. **Fitts's Law**: Time to acquire a target is a function of target distance and size.
+   - *Action*: Mobile touch targets must be at least **44×44px** with \`8px\` minimum spacing.
 
-3. **Gestalt Principles (Proximity & Similarity)**: Elements close to each other or sharing visual traits are perceived as related.
-   - *Action*: Group price, ratings, and call-to-action buttons inside a distinct visual card container.
-
-4. **Jakob's Law (Familiarity)**: Users spend most of their time on other sites, preferring your site to work the same way.
-   - *Action*: Place shopping carts top-right and brand logos top-left for intuitive muscle memory.`;
+3. **Gestalt Principle of Proximity**: Elements grouped closely are perceived as related.
+   - *Action*: Keep card image, title, price, and CTA enclosed within a clear container border.`;
   }
 
-  // 2. UX Research, Usability & Conversion Optimization
-  if (msgLower.includes('ux') || msgLower.includes('usability') || msgLower.includes('user experience') || msgLower.includes('conversion') || msgLower.includes('checkout') || msgLower.includes('funnel') || msgLower.includes('onboarding')) {
-    return `### ⚡ Master UX Strategy for ${ctx}
+  // =========================================================================
+  // 7. Live Web Tavily Search Synthesis (For Any Generic Question!)
+  // =========================================================================
+  if (apiKey) {
+    try {
+      const snippets = await fetchTavilySearch(apiKey, `${msg} design guide definition explanation`);
+      if (snippets && snippets.length > 0) {
+        let synthesizedText = `### 💡 ${msg.charAt(0).toUpperCase() + msg.slice(1)} (Product Design Guide)\n\n`;
+        synthesizedText += `Here is a structured explanation regarding **"${msg}"**:\n\n`;
 
-Here is a conversion-focused UX architecture tailored for modern product design:
+        snippets.slice(0, 3).forEach((item, idx) => {
+          const cleanTitle = (item.title || '').replace(/<[^>]*>?/gm, '').trim();
+          const cleanContent = (item.content || '').replace(/<[^>]*>?/gm, '').trim();
+          if (cleanTitle && cleanContent) {
+            synthesizedText += `#### ${idx + 1}. ${cleanTitle}\n${cleanContent}\n\n`;
+          }
+        });
 
-#### 1. First 3 Seconds (Hero Experience)
-- **Clear Value Proposition**: A prominent H1 (max 8 words) describing *what* it is and *why* it matters.
-- **High-Contrast Primary CTA**: Use full accent color fill (e.g. \`#6366f1\`) paired with directional icon indicator (\`↗\` or \`→\`).
+        synthesizedText += `---
+#### 🛠️ Key Takeaways for ${ctx}:
+- Ensure visual hierarchy clearly guides the user's eye to the primary goal.
+- Maintain consistency in spacing, typography, and component states across screens.`;
 
-#### 2. Reducing Friction & Cognitive Load
-- **Progressive Disclosure**: Show essential fields first, revealing secondary filters or options on demand.
-- **Inline Validation**: Provide instant visual feedback (\`✓ Valid\` / \`⚠️ Required\`) directly beside input fields.
-
-#### 3. Mobile-First Ergonomics
-- **Thumb Zone Friendly**: Place high-frequency actions in the bottom 40% of mobile screens.
-- **Sticky Purchase/Action Bar**: Ensure primary CTA remains fixed at the screen bottom on long scrolling pages.
-
-\`\`\`css
-/* Example Touch Target Optimization */
-.primary-cta {
-  min-height: 48px;
-  padding: 12px 24px;
-  font-size: 15px;
-  font-weight: 700;
-  border-radius: 12px;
-}
-\`\`\``;
+        return synthesizedText;
+      }
+    } catch (e) {
+      // fallback if search fails
+    }
   }
 
-  // 3. UI Design Systems, Colors, Dark Mode & Typography
-  if (msgLower.includes('ui') || msgLower.includes('color') || msgLower.includes('dark mode') || msgLower.includes('typography') || msgLower.includes('font') || msgLower.includes('grid') || msgLower.includes('spacing') || msgLower.includes('theme')) {
-    return `### 🎨 UI Design System & Visual Guidelines
-
-To achieve a sleek, high-end visual aesthetic like DesignPilot:
-
-#### 1. The 60-30-10 Color Hierarchy
-- **60% Dominant Background**: Deep charcoal canvas (\`#0D0E10\` / \`#121418\`).
-- **30% Secondary Surfaces**: Card & sidebar containers (\`#181A1F\` / \`#20242C\`).
-- **10% Accent/Action**: Vibrant brand accent (\`#6366f1\` / \`#818cf8\`).
-
-#### 2. Spacing Scale (8pt Grid System)
-Use consistent multiples of 4 and 8 for all margins and paddings:
-- \`4px\` (micro spacing), \`8px\` (compact gap), \`16px\` (standard element gap), \`24px\` (card padding), \`48px\` (section spacing).
-
-#### 3. Typography Scale
-- **H1 Display**: \`32px - 40px\` (Font-weight: 800)
-- **H2 Section**: \`22px - 26px\` (Font-weight: 700)
-- **H3 Card Title**: \`15px - 17px\` (Font-weight: 600)
-- **Body Text**: \`14px\` (Line-height: 1.5)
-- **Meta/Badges**: \`11px - 12px\` (Font-weight: 600, uppercase)
-
-\`\`\`css
-/* Design System CSS Tokens */
-:root {
-  --bg-dark: #0d0e10;
-  --bg-surface: #181a1f;
-  --primary-accent: #6366f1;
-  --text-heading: #f8fafc;
-  --text-secondary: #94a3b8;
-}
-\`\`\``;
-  }
-
-  // 4. Figma Workflows, Tokens & Auto-Layout
-  if (msgLower.includes('figma') || msgLower.includes('auto layout') || msgLower.includes('component') || msgLower.includes('variant') || msgLower.includes('token') || msgLower.includes('plugin')) {
-    return `### ❖ Figma Component Architecture & Workflow
-
-Here is how to structure scalable Figma components for your team:
-
-#### 1. Auto Layout 5.0 Best Practices
-- **Direction**: Set parent containers to \`Vertical\` layout with \`Fill Container\` width.
-- **Padding**: Apply \`24px\` horizontal and \`20px\` vertical inner padding for card components.
-- **Gap between items**: Use \`12px\` gap for tight stacked metadata and \`20px\` for card rows.
-
-#### 2. Component Variant Matrix
-Organize UI elements into a single Component Set with boolean & variant properties:
-- **State**: \`Default\` | \`Hover\` | \`Active\` | \`Disabled\`
-- **Size**: \`Sm (36px)\` | \`Md (44px)\` | \`Lg (52px)\`
-- **Icon Slots**: \`Show Leading Icon = True/False\`
-
-#### 3. Design Hand-off Tip
-Bind spacing and color properties to **Figma Variables** (Color & Dimension tokens) so developers can export CSS variables directly.`;
-  }
-
-  // 5. Accessibility (WCAG 2.1 AA/AAA)
-  if (msgLower.includes('wcag') || msgLower.includes('accessib') || msgLower.includes('contrast') || msgLower.includes('screen reader') || msgLower.includes('aria')) {
-    return `### ♿ WCAG 2.1 AA Accessibility Guidelines
-
-Ensure your interface meets international compliance standards:
-
-1. **Contrast Ratios**:
-   - Normal Body Text: Minimum **4.5:1** contrast ratio against background.
-   - Large Text ($\ge 18\text{pt}$ / bold $14\text{pt}$): Minimum **3:1** ratio.
-   - UI Components & Icons: Minimum **3:1** ratio.
-
-2. **Keyboard Navigation & Focus States**:
-   - Never remove \`outline: none\` without providing a distinct focus ring (\`box-shadow: 0 0 0 2px #6366f1\`).
-   - Allow full keyboard traversal using \`Tab\` and \`Shift+Tab\`.
-
-3. **Screen Reader Optimization**:
-   - Use semantic HTML tags (\`<main>\`, \`<nav>\`, \`<article>\`, \`<button>\`).
-   - Add \`aria-label\` attributes to icon-only buttons.`;
-  }
-
-  // 6. E-Commerce & Landing Page Specific Advice
-  if (msgLower.includes('ecommerce') || msgLower.includes('shop') || msgLower.includes('product') || msgLower.includes('store') || msgLower.includes('landing page') || msgLower.includes('saas') || msgLower.includes('dashboard')) {
-    return `### 🚀 Product Design Strategy for ${ctx}
-
-Here are the highest performing design patterns for **${ctx}**:
-
-1. **High-Resolution Visual Media**:
-   - Use high-quality preview thumbnails with \`aspect-ratio: 16/10\` and subtle hover zoom transitions (\`transform: scale(1.03)\`).
-
-2. **Clear Direct Action Buttons**:
-   - Provide explicit dual buttons: \`[View Item ↗]\` for full product details and \`[Live Demo ↗]\` for direct interactive preview.
-
-3. **Trust & Social Proof**:
-   - Incorporate relevance ratings (\`94% Match\`), category badges, and user reviews directly above the title.
-
-4. **Responsive Grid Architecture**:
-   - Use a **4-Column Grid** on Desktop ($\ge 1200\text{px}$), **2-Column** on Tablet, and **1-Column** on Mobile.`;
-  }
-
-  // 7. General Purpose Intelligent Response (ChatGPT Style)
+  // Fallback response for unhandled generic questions
   return `### 💡 Design & Product Insight
 
 Regarding **"${msg}"** in the context of **${ctx}**:
 
-#### Key Recommendations:
-1. **User Centricity**: Focus on user intent first. Ensure the primary action is visually unmistakable and achievable in minimum steps.
-2. **Visual Consistency**: Maintain strict adherence to your design system's spacing grid, typography hierarchy, and color tokens.
-3. **Performance & Speed**: Fast page load speeds and smooth micro-animations enhance perceived performance and user delight.
+#### 1. Core Principles
+- **User Centricity**: Focus on user intent first. Ensure the primary action is visually unmistakable and achievable in minimum steps.
+- **Visual Consistency**: Maintain strict adherence to your design system's spacing grid, typography hierarchy, and color tokens.
+- **Usability & Speed**: Fast page load speeds, inline validation, and clear feedback enhance user trust.
 
-#### Next Steps:
-- Would you like specific CSS code snippets, Figma auto-layout settings, or WCAG color contrast specs for this requirement?`;
+#### 2. Practical Application
+- Use clear visual hierarchy with high-contrast call-to-action buttons.
+- Keep interactive touch targets at least **44×44px** on mobile screens.`;
 }
 
 // Route Handler
@@ -193,7 +288,6 @@ module.exports = async function handler(req, res) {
 
     const message = body.message || body.prompt || '';
     const context = body.context || 'Product Design';
-    const history = body.history || [];
 
     if (!message || message.trim() === '') {
       return sendJson(400, {
@@ -202,8 +296,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Generate intelligent AI response
-    const answer = generateAIResponse(message, context, history);
+    const apiKey = process.env.TAVILY_API_KEY ? process.env.TAVILY_API_KEY.trim() : '';
+
+    // Generate comprehensive AI response
+    const answer = await generateAIResponse(message, context, apiKey);
 
     return sendJson(200, {
       status: 'success',

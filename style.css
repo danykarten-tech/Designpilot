@@ -1446,3 +1446,50 @@ body {
   font-style: italic;
 }
 
+/* AI Chat Markdown Table & HR Styling */
+.ai-table-wrapper {
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.ai-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+}
+
+.ai-md-table th {
+  background: #181a20;
+  padding: 6px 10px;
+  font-weight: 700;
+  color: var(--text-heading);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ai-md-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-body);
+}
+
+.ai-md-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 12px 0;
+}
+
+.ai-msg-subheading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+

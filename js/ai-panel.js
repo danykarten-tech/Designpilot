@@ -17,17 +17,42 @@ function formatMarkdown(str) {
     return `<div class="ai-code-block"><div class="ai-code-header"><span>${langLabel}</span><button onclick="navigator.clipboard.writeText(this.parentNode.nextElementSibling.innerText); this.textContent='Copied!';" class="ai-copy-btn">Copy</button></div><pre><code>${escapedCode}</code></pre></div>`;
   });
 
+  // Markdown Tables (| col1 | col2 |)
+  html = html.replace(/\n\|([^\n]+)\|\n\|[-|\s:]+\|\n((?:\|[^\n]+\|\n?)+)/g, (match, header, body) => {
+    const headers = header.split('|').map(h => h.trim()).filter(h => h.length > 0);
+    const rows = body.trim().split('\n').map(row => row.split('|').map(cell => cell.trim()).filter(cell => cell.length > 0));
+    
+    let tableHtml = '<div class="ai-table-wrapper"><table class="ai-md-table"><thead><tr>';
+    headers.forEach(h => tableHtml += `<th>${h}</th>`);
+    tableHtml += '</tr></thead><tbody>';
+    rows.forEach(r => {
+      if (r.length > 0) {
+        tableHtml += '<tr>';
+        r.forEach(c => tableHtml += `<td>${c}</td>`);
+        tableHtml += '</tr>';
+      }
+    });
+    tableHtml += '</tbody></table></div>';
+    return '\n' + tableHtml + '\n';
+  });
+
+  // Horizontal Rules ---
+  html = html.replace(/\n---\n/g, '<hr class="ai-hr">');
+
   // Inline code `code`
   html = html.replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>');
 
-  // Headings ###
+  // Headings ### and ####
   html = html.replace(/### (.*?)\n/g, '<h4 class="ai-msg-heading">$1</h4>');
-  html = html.replace(/#### (.*?)\n/g, '<h5 class="ai-msg-subheading" style="font-weight:700; color:var(--text-heading); margin-top:8px;">$1</h5>');
+  html = html.replace(/#### (.*?)\n/g, '<h5 class="ai-msg-subheading">$1</h5>');
 
   // Bold **text**
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-  // Lists • or - or 1.
+  // Italics *text*
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // Bullet Lists • or - or 1.
   html = html.replace(/\n• (.*?)/g, '<br>• $1');
   html = html.replace(/\n- (.*?)/g, '<br>• $1');
   html = html.replace(/\n(\d+)\. (.*?)/g, '<br><strong>$1.</strong> $2');
