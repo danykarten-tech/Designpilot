@@ -6,6 +6,10 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/ai/chat.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "{index.html,style.css,app.js,js/**,*.png,*.jpg,*.svg,*.ico}",
       "use": "@vercel/static"
     }
@@ -14,6 +18,10 @@
     {
       "src": "/api/inspiration/search",
       "dest": "/api/inspiration/search.js"
+    },
+    {
+      "src": "/api/ai/chat",
+      "dest": "/api/ai/chat.js"
     },
     {
       "handle": "filesystem"
