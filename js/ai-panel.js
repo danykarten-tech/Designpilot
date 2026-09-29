@@ -140,15 +140,27 @@ window.initAIPanel = function(state) {
     aiMsgList.scrollTop = aiMsgList.scrollHeight;
 
     try {
-      // 3. Post user prompt & conversation history to backend /api/ai/chat
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: trimmedText,
-          conversation: conversationHistory
-        })
-      });
+      // 3. Post user prompt & conversation history to backend /api/chat
+      let res;
+      try {
+        res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: trimmedText,
+            conversation: conversationHistory
+          })
+        });
+      } catch (e1) {
+        res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: trimmedText,
+            conversation: conversationHistory
+          })
+        });
+      }
 
       if (!res.ok) {
         throw new Error(`HTTP Error ${res.status}`);

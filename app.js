@@ -5,7 +5,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const state = {
     activeView: 'home',
-    searchQuery: 'Footwear Ecommerce',
+    searchQuery: '',
     activeFilter: 'All',
     isAIPanelOpen: false
   };
