@@ -1072,9 +1072,11 @@ body {
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.workspace-wrapper.ai-open .ai-side-panel {
-  transform: translateX(0);
+.workspace-wrapper.ai-open .ai-side-panel,
+.ai-side-panel.open {
+  transform: translateX(0) !important;
 }
+
 
 .ai-panel-header {
   padding: 16px 20px;

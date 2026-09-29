@@ -2,8 +2,8 @@
    DESIGNPILOT AI - GENERAL-PURPOSE AI ASSISTANT MODULE (js/ai-panel.js)
    ========================================================================== */
 
-// Conversation Memory Store for Active Chat Session
 let conversationHistory = [];
+let appStateRef = null;
 
 function formatMarkdown(str) {
   if (!str) return '';
@@ -69,38 +69,146 @@ function formatMarkdown(str) {
   return html;
 }
 
-window.initAIPanel = function(state) {
+// Global Open AI Panel Function (Works independently of API)
+window.openAIPanel = function() {
   const wrapper = document.getElementById('workspace-wrapper');
-  const aiToggleBtn = document.getElementById('btn-toggle-ai');
+  const panel = document.getElementById('ai-panel');
+  if (wrapper) wrapper.classList.add('ai-open');
+  if (panel) {
+    panel.classList.add('open');
+    panel.style.transform = 'translateX(0)';
+  }
+  if (appStateRef) appStateRef.isAIPanelOpen = true;
+  const input = document.getElementById('ai-panel-input');
+  if (input) {
+    setTimeout(() => input.focus(), 150);
+  }
+};
+
+// Global Close AI Panel Function (Works independently of API)
+window.closeAIPanel = function() {
+  const wrapper = document.getElementById('workspace-wrapper');
+  const panel = document.getElementById('ai-panel');
+  if (wrapper) wrapper.classList.remove('ai-open');
+  if (panel) {
+    panel.classList.remove('open');
+    panel.style.transform = '';
+  }
+  if (appStateRef) appStateRef.isAIPanelOpen = false;
+};
+
+// Global Toggle AI Panel Function
+window.toggleAIPanel = function() {
+  const wrapper = document.getElementById('workspace-wrapper');
+  const isOpen = wrapper && wrapper.classList.contains('ai-open');
+  if (isOpen) {
+    window.closeAIPanel();
+  } else {
+    window.openAIPanel();
+  }
+};
+
+// Send AI Message logic
+async function sendAIMessage(customText) {
+  const aiInput = document.getElementById('ai-panel-input');
+  const aiMsgList = document.getElementById('ai-messages-list');
+  const text = customText || (aiInput ? aiInput.value : '');
+  if (!text || text.trim() === '' || !aiMsgList) return;
+
+  const trimmedText = text.trim();
+
+  // 1. Append User Message
+  const userMsg = document.createElement('div');
+  userMsg.className = 'ai-msg user';
+  userMsg.textContent = trimmedText;
+  aiMsgList.appendChild(userMsg);
+
+  if (!customText && aiInput) aiInput.value = '';
+  aiMsgList.scrollTop = aiMsgList.scrollHeight;
+
+  // 2. Append Typing Indicator
+  const isWebQuery = /https?:\/\/|latest|news|today|price|football|match|stock|weather|2026/i.test(trimmedText);
+  const loadingText = isWebQuery ? 'Researching the web...' : 'Thinking...';
+  const loadingIcon = isWebQuery ? 'fa-earth-americas' : 'fa-sparkles';
+
+  const typingIndicator = document.createElement('div');
+  typingIndicator.className = 'ai-msg assistant ai-typing-indicator';
+  typingIndicator.innerHTML = `<i class="fa-solid ${loadingIcon} fa-spin" style="color: var(--primary-color, #6366f1);"></i> ${loadingText}`;
+  aiMsgList.appendChild(typingIndicator);
+  aiMsgList.scrollTop = aiMsgList.scrollHeight;
+
+  try {
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: trimmedText,
+        conversation: conversationHistory
+      })
+    });
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (jsonErr) {
+      throw new Error(`Invalid server response: HTTP ${res.status}`);
+    }
+
+    if (typingIndicator.parentNode) {
+      typingIndicator.parentNode.removeChild(typingIndicator);
+    }
+
+    if (!res.ok || (data && data.status === 'error')) {
+      const errorDetail = (data && data.message) ? data.message : `HTTP Error ${res.status}`;
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'ai-msg assistant error-msg';
+      errorMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> ${formatMarkdown(errorDetail)}`;
+      aiMsgList.appendChild(errorMsg);
+      aiMsgList.scrollTop = aiMsgList.scrollHeight;
+      return;
+    }
+
+    const replyText = data.reply || "I couldn't complete that request right now. Please try again.";
+
+    conversationHistory.push({ role: 'user', content: trimmedText });
+    conversationHistory.push({ role: 'assistant', content: replyText });
+
+    const botMsg = document.createElement('div');
+    botMsg.className = 'ai-msg assistant';
+    botMsg.innerHTML = formatMarkdown(replyText);
+    aiMsgList.appendChild(botMsg);
+    aiMsgList.scrollTop = aiMsgList.scrollHeight;
+
+  } catch (err) {
+    console.error('[DesignPilot AI] Request error:', err);
+    if (typingIndicator.parentNode) {
+      typingIndicator.parentNode.removeChild(typingIndicator);
+    }
+
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'ai-msg assistant error-msg';
+    errorMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> I couldn't complete that request right now. Please check your connection or try again.`;
+    aiMsgList.appendChild(errorMsg);
+    aiMsgList.scrollTop = aiMsgList.scrollHeight;
+  }
+}
+
+window.sendAIMessage = sendAIMessage;
+
+// Module Initialization
+window.initAIPanel = function(state) {
+  appStateRef = state;
+
   const aiCloseBtn = document.getElementById('btn-ai-close');
   const aiMinBtn = document.getElementById('btn-ai-min');
   const aiNewBtn = document.getElementById('btn-ai-new-chat');
-
   const aiInput = document.getElementById('ai-panel-input');
   const aiSendBtn = document.getElementById('btn-ai-send');
   const aiMsgList = document.getElementById('ai-messages-list');
 
-  function openAIPanel() {
-    if (wrapper) wrapper.classList.add('ai-open');
-    state.isAIPanelOpen = true;
-  }
+  if (aiCloseBtn) aiCloseBtn.addEventListener('click', window.closeAIPanel);
+  if (aiMinBtn) aiMinBtn.addEventListener('click', window.closeAIPanel);
 
-  function closeAIPanel() {
-    if (wrapper) wrapper.classList.remove('ai-open');
-    state.isAIPanelOpen = false;
-  }
-
-  if (aiToggleBtn) {
-    aiToggleBtn.addEventListener('click', () => {
-      if (state.isAIPanelOpen) closeAIPanel();
-      else openAIPanel();
-    });
-  }
-
-  if (aiCloseBtn) aiCloseBtn.addEventListener('click', closeAIPanel);
-  if (aiMinBtn) aiMinBtn.addEventListener('click', closeAIPanel);
-
-  // + New Chat Functionality: Resets conversation history and chat log
   if (aiNewBtn && aiMsgList) {
     aiNewBtn.addEventListener('click', () => {
       conversationHistory = [];
@@ -112,107 +220,30 @@ window.initAIPanel = function(state) {
     });
   }
 
-  async function sendAIMessage(customText) {
-    const text = customText || (aiInput ? aiInput.value : '');
-    if (!text || text.trim() === '' || !aiMsgList) return;
-
-    const trimmedText = text.trim();
-
-    // 1. Append User Message to Chat UI
-    const userMsg = document.createElement('div');
-    userMsg.className = 'ai-msg user';
-    userMsg.textContent = trimmedText;
-    aiMsgList.appendChild(userMsg);
-
-    if (!customText && aiInput) aiInput.value = '';
-    aiMsgList.scrollTop = aiMsgList.scrollHeight;
-
-    // Detect if live web research is needed (URLs or time-sensitive keywords)
-    const isWebQuery = /https?:\/\/|latest|news|today|price|football|match|stock|weather|2026/i.test(trimmedText);
-    const loadingText = isWebQuery ? 'Researching the web...' : 'Thinking...';
-    const loadingIcon = isWebQuery ? 'fa-earth-americas' : 'fa-sparkles';
-
-    // 2. Append Typing Indicator
-    const typingIndicator = document.createElement('div');
-    typingIndicator.className = 'ai-msg assistant ai-typing-indicator';
-    typingIndicator.innerHTML = `<i class="fa-solid ${loadingIcon} fa-spin" style="color: var(--primary-color, #6366f1);"></i> ${loadingText}`;
-    aiMsgList.appendChild(typingIndicator);
-    aiMsgList.scrollTop = aiMsgList.scrollHeight;
-
-    try {
-      // 3. Post user prompt & conversation history to backend /api/chat
-      let res;
-      try {
-        res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: trimmedText,
-            conversation: conversationHistory
-          })
-        });
-      } catch (e1) {
-        res = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: trimmedText,
-            conversation: conversationHistory
-          })
-        });
-      }
-
-      if (!res.ok) {
-        throw new Error(`HTTP Error ${res.status}`);
-      }
-
-      const data = await res.json();
-      
-      // Remove typing indicator
-      if (typingIndicator.parentNode) {
-        typingIndicator.parentNode.removeChild(typingIndicator);
-      }
-
-      const replyText = data.reply || "I couldn't complete that request right now. Please try again.";
-
-      // Save to conversation history memory for multi-turn context
-      conversationHistory.push({ role: 'user', content: trimmedText });
-      conversationHistory.push({ role: 'assistant', content: replyText });
-
-      // Render assistant message in Chat UI
-      const botMsg = document.createElement('div');
-      botMsg.className = 'ai-msg assistant';
-      botMsg.innerHTML = formatMarkdown(replyText);
-      aiMsgList.appendChild(botMsg);
-      aiMsgList.scrollTop = aiMsgList.scrollHeight;
-
-    } catch (err) {
-      console.error('[DesignPilot AI] Request error:', err);
-      
-      if (typingIndicator.parentNode) {
-        typingIndicator.parentNode.removeChild(typingIndicator);
-      }
-
-      const errorMsg = document.createElement('div');
-      errorMsg.className = 'ai-msg assistant error-msg';
-      errorMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> I couldn't complete that request right now. Please check your connection or try again.`;
-      
-      aiMsgList.appendChild(errorMsg);
-      aiMsgList.scrollTop = aiMsgList.scrollHeight;
-    }
-  }
-
   if (aiSendBtn) aiSendBtn.addEventListener('click', () => sendAIMessage());
   if (aiInput) {
     aiInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendAIMessage();
     });
   }
-
-  window.openAIPanel = openAIPanel;
-  window.closeAIPanel = closeAIPanel;
-  window.sendAIMessage = sendAIMessage;
 };
+
+// Global Click Delegation for Top Nav AI Button and Controls
+document.addEventListener('click', (e) => {
+  const toggleBtn = e.target.closest('#btn-toggle-ai, .ai-toggle-btn, [data-action="toggle-ai"]');
+  if (toggleBtn) {
+    e.preventDefault();
+    window.toggleAIPanel();
+    return;
+  }
+
+  const closeBtn = e.target.closest('#btn-ai-close, #btn-ai-min');
+  if (closeBtn) {
+    e.preventDefault();
+    window.closeAIPanel();
+    return;
+  }
+});
 
 // Context Indicator Updater
 window.updateAIContextText = function(state) {

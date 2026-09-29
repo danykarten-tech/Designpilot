@@ -57,9 +57,10 @@ const server = http.createServer((req, res) => {
     return searchHandler(req, res);
   }
 
-  if (pathname === '/api/ai/chat' && (req.method === 'POST' || req.method === 'GET')) {
+  if ((pathname === '/api/ai/chat' || pathname === '/api/chat') && (req.method === 'POST' || req.method === 'GET')) {
     return aiChatHandler(req, res);
   }
+
 
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
 
