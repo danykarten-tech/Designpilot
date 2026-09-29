@@ -2,7 +2,69 @@ const https = require('https');
 const url = require('url');
 
 // -------------------------------------------------------------------------
-// Tavily Search Helper for Live Web Query Synthesis
+// 1. OpenAI Chat Completions Integration Helper
+// -------------------------------------------------------------------------
+function fetchOpenAIChat(apiKey, systemPrompt, userMessage) {
+  return new Promise((resolve) => {
+    if (!apiKey) return resolve(null);
+
+    const postData = JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      temperature: 0.7,
+      max_tokens: 1500
+    });
+
+    const reqOptions = {
+      hostname: 'api.openai.com',
+      port: 443,
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      timeout: 12000
+    };
+
+    const req = https.request(reqOptions, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const data = JSON.parse(body);
+            if (data.choices && data.choices[0] && data.choices[0].message) {
+              resolve(data.choices[0].message.content);
+            } else {
+              resolve(null);
+            }
+          } catch (e) {
+            resolve(null);
+          }
+        } else {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+
+    req.write(postData);
+    req.end();
+  });
+}
+
+// -------------------------------------------------------------------------
+// 2. Tavily Advanced Search Helper for Real-Time Web Query Synthesis
 // -------------------------------------------------------------------------
 function fetchTavilySearch(apiKey, searchQuery) {
   return new Promise((resolve) => {
@@ -11,8 +73,8 @@ function fetchTavilySearch(apiKey, searchQuery) {
     const postData = JSON.stringify({
       api_key: apiKey,
       query: searchQuery,
-      search_depth: 'basic',
-      max_results: 5
+      search_depth: 'advanced',
+      max_results: 6
     });
 
     const reqOptions = {
@@ -24,7 +86,7 @@ function fetchTavilySearch(apiKey, searchQuery) {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData)
       },
-      timeout: 6000
+      timeout: 8000
     };
 
     const req = https.request(reqOptions, (res) => {
@@ -591,10 +653,24 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const apiKey = process.env.TAVILY_API_KEY ? process.env.TAVILY_API_KEY.trim() : '';
+    const openAiKey = process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.trim() : '';
+    const tavilyKey = process.env.TAVILY_API_KEY ? process.env.TAVILY_API_KEY.trim() : '';
 
-    // Generate comprehensive AI response
-    const answer = await generateAIResponse(message, context, apiKey);
+    let answer = null;
+    if (openAiKey) {
+      const systemPrompt = `You are DesignPilot AI, an expert ChatGPT-style Product Design Assistant, UI/UX Auditor, and Tech Researcher.
+When responding:
+- Provide direct, highly detailed, real, accurate answers tailored specifically to the user's prompt.
+- For website URL audit requests (e.g. richestsoft.com, stripe.com, etc.), analyze the site's business model, provide 5 real UX issues & solutions, 5 real UI issues & solutions, and a Summary Audit Matrix Table.
+- Format responses in GitHub Markdown with clear headings (###), bold text, bullet points, Markdown tables (| col1 | col2 |), and code snippets where applicable.
+- Do not use fake generic placeholders; provide specific, actionable research insights.`;
+
+      answer = await fetchOpenAIChat(openAiKey, systemPrompt, message);
+    }
+
+    if (!answer) {
+      answer = await generateAIResponse(message, context, tavilyKey);
+    }
 
     return sendJson(200, {
       status: 'success',
