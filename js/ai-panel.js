@@ -1,8 +1,8 @@
 /* ==========================================================================
-   DESIGNPILOT AI - DYNAMIC GENERAL-PURPOSE AI ASSISTANT MODULE (js/ai-panel.js)
+   DESIGNPILOT AI - GENERAL-PURPOSE AI ASSISTANT MODULE (js/ai-panel.js)
    ========================================================================== */
 
-// Conversation Memory Store for Current Chat Session
+// Conversation Memory Store for Active Chat Session
 let conversationHistory = [];
 
 function formatMarkdown(str) {
@@ -100,13 +100,13 @@ window.initAIPanel = function(state) {
   if (aiCloseBtn) aiCloseBtn.addEventListener('click', closeAIPanel);
   if (aiMinBtn) aiMinBtn.addEventListener('click', closeAIPanel);
 
-  // + New Chat Functionality (Clears conversation history memory & UI)
+  // + New Chat Functionality: Resets conversation history and chat log
   if (aiNewBtn && aiMsgList) {
     aiNewBtn.addEventListener('click', () => {
       conversationHistory = [];
       aiMsgList.innerHTML = `
         <div class="ai-msg assistant">
-          👋 Hello! I am your AI Assistant. Ask me anything about UI/UX design, Figma, web development, technology, career, current events, or paste a website URL to analyze.
+          👋 Hello! I am your AI Assistant. Ask me anything—from UI/UX design, web development, and coding to general knowledge, writing, technology, current events, or website analysis.
         </div>
       `;
     });
@@ -118,7 +118,7 @@ window.initAIPanel = function(state) {
 
     const trimmedText = text.trim();
 
-    // 1. Append User Message Element to Chat UI
+    // 1. Append User Message to Chat UI
     const userMsg = document.createElement('div');
     userMsg.className = 'ai-msg user';
     userMsg.textContent = trimmedText;
@@ -127,12 +127,12 @@ window.initAIPanel = function(state) {
     if (!customText && aiInput) aiInput.value = '';
     aiMsgList.scrollTop = aiMsgList.scrollHeight;
 
-    // Determine loading indicator text based on query intent
+    // Detect if live web research is needed (URLs or time-sensitive keywords)
     const isWebQuery = /https?:\/\/|latest|news|today|price|football|match|stock|weather|2026/i.test(trimmedText);
     const loadingText = isWebQuery ? 'Researching the web...' : 'Thinking...';
     const loadingIcon = isWebQuery ? 'fa-earth-americas' : 'fa-sparkles';
 
-    // 2. Add Typing Indicator Placeholder
+    // 2. Append Typing Indicator
     const typingIndicator = document.createElement('div');
     typingIndicator.className = 'ai-msg assistant ai-typing-indicator';
     typingIndicator.innerHTML = `<i class="fa-solid ${loadingIcon} fa-spin" style="color: var(--primary-color, #6366f1);"></i> ${loadingText}`;
@@ -140,7 +140,7 @@ window.initAIPanel = function(state) {
     aiMsgList.scrollTop = aiMsgList.scrollHeight;
 
     try {
-      // 3. Post to backend endpoint with full conversation history
+      // 3. Post user prompt & conversation history to backend /api/ai/chat
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,7 +163,7 @@ window.initAIPanel = function(state) {
 
       const replyText = data.reply || "I couldn't complete that request right now. Please try again.";
 
-      // Record in conversation history for multi-turn context memory
+      // Save to conversation history memory for multi-turn context
       conversationHistory.push({ role: 'user', content: trimmedText });
       conversationHistory.push({ role: 'assistant', content: replyText });
 
@@ -175,7 +175,7 @@ window.initAIPanel = function(state) {
       aiMsgList.scrollTop = aiMsgList.scrollHeight;
 
     } catch (err) {
-      console.error('[DesignPilot AI] Error sending message:', err);
+      console.error('[DesignPilot AI] Request error:', err);
       
       if (typingIndicator.parentNode) {
         typingIndicator.parentNode.removeChild(typingIndicator);
@@ -207,13 +207,9 @@ window.updateAIContextText = function(state) {
   const textEl = document.getElementById('ai-context-text');
   if (!textEl) return;
 
-  if (state.activeView === 'inspiration') {
-    textEl.textContent = `Context: ${state.searchQuery || 'Inspiration Search'}`;
-  } else if (state.activeView === 'figma') {
-    textEl.textContent = `Context: Figma Component Library`;
-  } else if (state.activeView === 'projects') {
-    textEl.textContent = `Context: Active Design Projects`;
+  if (state && state.searchQuery) {
+    textEl.textContent = `Context: ${state.searchQuery}`;
   } else {
-    textEl.textContent = `Context: General AI Workspace`;
+    textEl.textContent = `General AI Workspace`;
   }
 };

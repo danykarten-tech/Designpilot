@@ -337,7 +337,10 @@ Your Core Rules:
       
       const snippetBlocks = webResearchContext.split('\n\n').filter(b => b.trim().length > 30);
       snippetBlocks.slice(0, 4).forEach((block, idx) => {
-        generatedAnswer += `#### ${idx + 1}. Research Insight\n${block}\n\n`;
+        const titleMatch = block.match(/Source \[([^\]]+)\]/);
+        const heading = titleMatch ? titleMatch[1] : `Key Finding ${idx + 1}`;
+        const contentOnly = block.replace(/Source \[[^\]]+\] \([^\)]+\): /, '');
+        generatedAnswer += `#### ${idx + 1}. ${heading}\n${contentOnly}\n\n`;
       });
     }
 
