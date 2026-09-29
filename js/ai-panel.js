@@ -1,11 +1,17 @@
 /* ==========================================================================
-   DESIGNPILOT AI - COLLAPSIBLE AI PANEL MODULE (js/ai-panel.js)
+   DESIGNPILOT AI - DYNAMIC GENERAL-PURPOSE AI ASSISTANT MODULE (js/ai-panel.js)
    ========================================================================== */
+
+// Conversation Memory Store for Current Chat Session
+let conversationHistory = [];
 
 function formatMarkdown(str) {
   if (!str) return '';
   
   let html = str;
+
+  // Markdown Links [Text](URL)
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="ai-source-link">$1 <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;"></i></a>');
 
   // Code blocks ```css ... ```
   html = html.replace(/```([a-z]*)\n([\s\S]*?)```/gi, (match, lang, code) => {
@@ -94,11 +100,13 @@ window.initAIPanel = function(state) {
   if (aiCloseBtn) aiCloseBtn.addEventListener('click', closeAIPanel);
   if (aiMinBtn) aiMinBtn.addEventListener('click', closeAIPanel);
 
+  // + New Chat Functionality (Clears conversation history memory & UI)
   if (aiNewBtn && aiMsgList) {
     aiNewBtn.addEventListener('click', () => {
+      conversationHistory = [];
       aiMsgList.innerHTML = `
         <div class="ai-msg assistant">
-          Hello! I am your AI Design Assistant. Ask me about UI/UX layout patterns, Figma design systems, WCAG accessibility, or component engineering.
+          👋 Hello! I am your AI Assistant. Ask me anything about UI/UX design, Figma, web development, technology, career, current events, or paste a website URL to analyze.
         </div>
       `;
     });
@@ -108,36 +116,42 @@ window.initAIPanel = function(state) {
     const text = customText || (aiInput ? aiInput.value : '');
     if (!text || text.trim() === '' || !aiMsgList) return;
 
-    // 1. User Message Element
+    const trimmedText = text.trim();
+
+    // 1. Append User Message Element to Chat UI
     const userMsg = document.createElement('div');
     userMsg.className = 'ai-msg user';
-    userMsg.textContent = text;
+    userMsg.textContent = trimmedText;
     aiMsgList.appendChild(userMsg);
 
     if (!customText && aiInput) aiInput.value = '';
     aiMsgList.scrollTop = aiMsgList.scrollHeight;
 
-    // 2. Typing Indicator Placeholder
+    // Determine loading indicator text based on query intent
+    const isWebQuery = /https?:\/\/|latest|news|today|price|football|match|stock|weather|2026/i.test(trimmedText);
+    const loadingText = isWebQuery ? 'Researching the web...' : 'Thinking...';
+    const loadingIcon = isWebQuery ? 'fa-earth-americas' : 'fa-sparkles';
+
+    // 2. Add Typing Indicator Placeholder
     const typingIndicator = document.createElement('div');
     typingIndicator.className = 'ai-msg assistant ai-typing-indicator';
-    typingIndicator.innerHTML = `<i class="fa-solid fa-sparkles fa-spin" style="color: var(--primary-color);"></i> AI is thinking...`;
+    typingIndicator.innerHTML = `<i class="fa-solid ${loadingIcon} fa-spin" style="color: var(--primary-color, #6366f1);"></i> ${loadingText}`;
     aiMsgList.appendChild(typingIndicator);
     aiMsgList.scrollTop = aiMsgList.scrollHeight;
 
-    const currentContext = state.searchQuery || (state.activeView ? state.activeView.toUpperCase() : 'Product Design');
-
     try {
+      // 3. Post to backend endpoint with full conversation history
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: text,
-          context: currentContext
+          message: trimmedText,
+          conversation: conversationHistory
         })
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        throw new Error(`HTTP Error ${res.status}`);
       }
 
       const data = await res.json();
@@ -147,29 +161,31 @@ window.initAIPanel = function(state) {
         typingIndicator.parentNode.removeChild(typingIndicator);
       }
 
+      const replyText = data.reply || "I couldn't complete that request right now. Please try again.";
+
+      // Record in conversation history for multi-turn context memory
+      conversationHistory.push({ role: 'user', content: trimmedText });
+      conversationHistory.push({ role: 'assistant', content: replyText });
+
+      // Render assistant message in Chat UI
       const botMsg = document.createElement('div');
       botMsg.className = 'ai-msg assistant';
-
-      const replyText = data.reply || 'Thank you for your question. How else can I assist with your design workflow?';
       botMsg.innerHTML = formatMarkdown(replyText);
       aiMsgList.appendChild(botMsg);
       aiMsgList.scrollTop = aiMsgList.scrollHeight;
 
     } catch (err) {
-      console.warn('[DesignPilot AI] Endpoint fallback activated:', err);
+      console.error('[DesignPilot AI] Error sending message:', err);
       
       if (typingIndicator.parentNode) {
         typingIndicator.parentNode.removeChild(typingIndicator);
       }
 
-      const botMsg = document.createElement('div');
-      botMsg.className = 'ai-msg assistant';
-
-      // Smart fallback response
-      let fallbackText = `### 💡 Design Insight for ${currentContext}\n\nRegarding **"${text}"**:\n\n1. **Visual Hierarchy**: Prioritize primary CTAs with distinct accent background colors and high contrast.\n2. **Usability**: Keep user flows linear and predictable with minimum friction.\n3. **Accessibility**: Ensure minimum 4.5:1 color contrast compliance (WCAG 2.1 AA).`;
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'ai-msg assistant error-msg';
+      errorMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> I couldn't complete that request right now. Please check your connection or try again.`;
       
-      botMsg.innerHTML = formatMarkdown(fallbackText);
-      aiMsgList.appendChild(botMsg);
+      aiMsgList.appendChild(errorMsg);
       aiMsgList.scrollTop = aiMsgList.scrollHeight;
     }
   }
@@ -198,7 +214,6 @@ window.updateAIContextText = function(state) {
   } else if (state.activeView === 'projects') {
     textEl.textContent = `Context: Active Design Projects`;
   } else {
-    textEl.textContent = `Context: ${state.searchQuery || 'Footwear Ecommerce'}`;
+    textEl.textContent = `Context: General AI Workspace`;
   }
 };
-

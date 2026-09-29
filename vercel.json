@@ -24,6 +24,10 @@
       "dest": "/api/ai/chat.js"
     },
     {
+      "src": "/api/chat",
+      "dest": "/api/ai/chat.js"
+    },
+    {
       "handle": "filesystem"
     },
     {
